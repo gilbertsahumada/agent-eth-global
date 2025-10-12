@@ -3,16 +3,28 @@ import fs from 'fs/promises';
 import matter from 'gray-matter';
 import OpenAI from 'openai';
 
+const VECTOR_SIZE = 1536; // OpenAI text-embedding-3-small vector size
+const CHUNK_SIZE = 500; // Number of words per chunk
+const QDRANT_API_KEY = process.env.QDRANT_API_KEY;
+const QDRANT_URL = process.env.QDRANT_URL;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+if (!QDRANT_API_KEY || !QDRANT_URL) {
+  throw new Error("QDRANT_API_KEY and QDRANT_URL must be set in environment variables");
+}
+
+if (!OPENAI_API_KEY) {
+  throw new Error("OPENAI_API_KEY must be set in environment variables");
+}
+
 export class QdranSimpleService {
   private client: QdrantClient;
   private openai: OpenAI;
 
   constructor() {
     this.client = new QdrantClient({
-      url:
-        process.env.QDRANT_URL ||
-        "https://15d2f546-dddd-4a8c-bed6-56764cfc9f39.us-west-1-0.aws.cloud.qdrant.io",
-      apiKey: process.env.QDRANT_API_KEY,
+      url: QDRANT_URL,
+      apiKey: QDRANT_API_KEY
     });
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
