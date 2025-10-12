@@ -27,7 +27,7 @@ export class QdranSimpleService {
       apiKey: QDRANT_API_KEY
     });
     this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: OPENAI_API_KEY,
     });
   }
 
@@ -41,7 +41,7 @@ export class QdranSimpleService {
       if (!existingCollections.includes(collectionName)) {
         await this.client.createCollection(collectionName, {
           vectors: {
-            size: 1536,
+            size: VECTOR_SIZE,
             distance: "Cosine",
           },
         });
