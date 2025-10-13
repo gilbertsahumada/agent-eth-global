@@ -6,7 +6,10 @@ interface SearchResult {
   content: string;
   filePath: string;
   chunkIndex: number;
-  metadata: any;
+  metadata: {
+    title?: string;
+    [key: string]: unknown;
+  } | null;
   score: number;
 }
 

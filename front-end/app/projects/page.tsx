@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
 interface Project {
   id: string;
@@ -77,12 +78,12 @@ export default function ProjectsPage() {
           <div className="bg-gray-900 border border-gray-800 rounded-lg p-12 text-center">
             <p className="text-gray-400 text-lg mb-4">No projects indexed yet</p>
             <p className="text-gray-500 mb-6">Start by indexing your first documentation</p>
-            <a
+            <Link
               href="/"
               className="inline-block px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
               📚 Index Documentation
-            </a>
+            </Link>
           </div>
         ) : (
           <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
