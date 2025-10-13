@@ -25,9 +25,6 @@ export const projectDocuments = pgTable('project_documents', {
   uniqueFilePerProject: uniqueIndex('unique_file_per_project').on(table.projectId, table.filePath),
 }));
 
-// Types inferidos del esquema
-export type Project = typeof projects.$inferSelect;
-export type NewProject = typeof projects.$inferInsert;
-
-export type ProjectDocument = typeof projectDocuments.$inferSelect;
-export type NewProjectDocument = typeof projectDocuments.$inferInsert;
+// NOTA: Los tipos se generan automáticamente desde Supabase
+// Usa: npm run types:generate
+// Los tipos estarán disponibles en: lib/types/database.types.ts
