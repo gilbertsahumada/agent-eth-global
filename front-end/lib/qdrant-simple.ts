@@ -81,7 +81,7 @@ export class QdranSimpleService {
       input: text,
     });
     
-    console.error('Embedding response:', response);
+    console.error('[QDRANT-SIMPLE] Embedding response:', response);
     return response.data[0].embedding;
   }
 
