@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { HiDocumentText, HiCloudArrowUp, HiCheckCircle, HiXCircle } from 'react-icons/hi2';
 
 export default function Home() {
   const [formData, setFormData] = useState({
@@ -68,9 +69,12 @@ export default function Home() {
     <div className="min-h-screen bg-gray-950 py-12 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="bg-gray-900 rounded-lg shadow-xl border border-gray-800 p-8">
-          <h1 className="text-3xl font-bold text-white mb-2">
-            📚 Index Documentation
-          </h1>
+          <div className="flex items-center gap-3 mb-2">
+            <HiDocumentText className="text-4xl text-blue-500" />
+            <h1 className="text-3xl font-bold text-white">
+              Index Documentation
+            </h1>
+          </div>
           <p className="text-gray-400 mb-8">
             Upload Markdown documentation to create a RAG-powered knowledge base
           </p>
@@ -118,7 +122,7 @@ export default function Home() {
               />
               {file && (
                 <p className="mt-2 text-sm text-green-400 flex items-center gap-2">
-                  <span className="text-green-500">✓</span> Selected: {file.name} ({(file.size / 1024).toFixed(2)} KB)
+                  <HiCheckCircle className="text-green-500" /> Selected: {file.name} ({(file.size / 1024).toFixed(2)} KB)
                 </p>
               )}
               <p className="mt-1 text-sm text-gray-500">
@@ -137,9 +141,19 @@ export default function Home() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 text-white py-3 px-6 rounded-md font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full bg-blue-600 text-white py-3 px-6 rounded-md font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
             >
-              {loading ? '⏳ Indexing...' : '🚀 Index Project'}
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  Indexing...
+                </>
+              ) : (
+                <>
+                  <HiCloudArrowUp className="text-xl" />
+                  Index Project
+                </>
+              )}
             </button>
           </form>
 
@@ -150,8 +164,8 @@ export default function Home() {
               <p className="text-gray-400"><span className="text-blue-400">Description:</span> Chainlink VRF V2.5 Documentation</p>
               <p className="text-gray-400"><span className="text-blue-400">File:</span> vrf.md (upload from your computer)</p>
             </div>
-            <p className="mt-4 text-xs text-gray-500 flex items-center gap-2">
-              <span>💡</span> Tip: You can find sample documentation in the <code className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-gray-400">front-end/public/</code> folder
+            <p className="mt-4 text-xs text-gray-500">
+              Tip: You can find sample documentation in the <code className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-gray-400">front-end/public/</code> folder
             </p>
           </div>
         </div>

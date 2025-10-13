@@ -2,14 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { HiDocumentText, HiFolderOpen, HiMagnifyingGlass, HiCpuChip } from 'react-icons/hi2';
 
 export default function Navbar() {
   const pathname = usePathname();
 
   const links = [
-    { href: '/', label: 'Index Docs', icon: '📚' },
-    { href: '/projects', label: 'Projects', icon: '📁' },
-    { href: '/search', label: 'Search', icon: '🔍' },
+    { href: '/', label: 'Index Docs', icon: HiDocumentText },
+    { href: '/projects', label: 'Projects', icon: HiFolderOpen },
+    { href: '/search', label: 'Search', icon: HiMagnifyingGlass },
   ];
 
   return (
@@ -18,7 +19,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              <span className="text-2xl">🤖</span>
+              <HiCpuChip className="text-2xl text-blue-500" />
               <span className="text-white font-bold text-xl">Agent RAG</span>
             </Link>
           </div>
@@ -26,6 +27,7 @@ export default function Navbar() {
           <div className="flex space-x-4">
             {links.map((link) => {
               const isActive = pathname === link.href;
+              const Icon = link.icon;
               return (
                 <Link
                   key={link.href}
@@ -36,7 +38,7 @@ export default function Navbar() {
                       : 'text-gray-300 hover:bg-gray-800 hover:text-white'
                   }`}
                 >
-                  <span>{link.icon}</span>
+                  <Icon className="text-lg" />
                   {link.label}
                 </Link>
               );

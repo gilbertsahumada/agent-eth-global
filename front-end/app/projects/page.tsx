@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { HiFolderOpen, HiDocumentText, HiMagnifyingGlass, HiArrowPath, HiXCircle } from 'react-icons/hi2';
 
 interface Project {
   id: string;
@@ -53,7 +54,10 @@ export default function ProjectsPage() {
     <div className="min-h-screen bg-gray-950 py-8 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">📁 Indexed Projects</h1>
+          <div className="flex items-center gap-3 mb-2">
+            <HiFolderOpen className="text-4xl text-blue-500" />
+            <h1 className="text-3xl font-bold text-white">Indexed Projects</h1>
+          </div>
           <p className="text-gray-400">
             Manage and view all your indexed documentation projects
           </p>
@@ -66,11 +70,13 @@ export default function ProjectsPage() {
           </div>
         ) : error ? (
           <div className="bg-red-950 border border-red-800 rounded-lg p-6 text-center">
-            <p className="text-red-400">❌ {error}</p>
+            <HiXCircle className="text-5xl text-red-400 mx-auto mb-4" />
+            <p className="text-red-400">{error}</p>
             <button
               onClick={fetchProjects}
-              className="mt-4 px-4 py-2 bg-red-800 text-white rounded-md hover:bg-red-700 transition-colors"
+              className="mt-4 px-4 py-2 bg-red-800 text-white rounded-md hover:bg-red-700 transition-colors flex items-center gap-2 mx-auto"
             >
+              <HiArrowPath className="text-lg" />
               Retry
             </button>
           </div>
@@ -80,9 +86,10 @@ export default function ProjectsPage() {
             <p className="text-gray-500 mb-6">Start by indexing your first documentation</p>
             <Link
               href="/"
-              className="inline-block px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
-              📚 Index Documentation
+              <HiDocumentText className="text-xl" />
+              Index Documentation
             </Link>
           </div>
         ) : (
@@ -135,9 +142,10 @@ export default function ProjectsPage() {
                             // TODO: Implement search functionality
                             alert(`Search functionality coming soon for ${project.name}`);
                           }}
-                          className="text-blue-400 hover:text-blue-300 transition-colors"
+                          className="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
                         >
-                          🔍 Search
+                          <HiMagnifyingGlass className="text-lg" />
+                          Search
                         </button>
                       </td>
                     </tr>
@@ -153,9 +161,10 @@ export default function ProjectsPage() {
                 </p>
                 <button
                   onClick={fetchProjects}
-                  className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                  className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
                 >
-                  🔄 Refresh
+                  <HiArrowPath className="text-base" />
+                  Refresh
                 </button>
               </div>
             </div>

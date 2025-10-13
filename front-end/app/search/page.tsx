@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { HiMagnifyingGlass, HiXCircle } from 'react-icons/hi2';
 
 interface SearchResult {
   content: string;
@@ -80,7 +81,10 @@ export default function SearchPage() {
     <div className="min-h-screen bg-gray-950 py-8 px-4">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">🔍 Search Documentation</h1>
+          <div className="flex items-center gap-3 mb-2">
+            <HiMagnifyingGlass className="text-4xl text-blue-500" />
+            <h1 className="text-3xl font-bold text-white">Search Documentation</h1>
+          </div>
           <p className="text-gray-400">
             Search across your indexed documentation using RAG
           </p>
@@ -127,16 +131,27 @@ export default function SearchPage() {
             <button
               type="submit"
               disabled={loading || !selectedProject}
-              className="w-full bg-blue-600 text-white py-3 px-6 rounded-md font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full bg-blue-600 text-white py-3 px-6 rounded-md font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
-              {loading ? '⏳ Searching...' : '🔍 Search'}
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  Searching...
+                </>
+              ) : (
+                <>
+                  <HiMagnifyingGlass className="text-xl" />
+                  Search
+                </>
+              )}
             </button>
           </form>
         </div>
 
         {error && (
-          <div className="bg-red-950 border border-red-800 rounded-lg p-4 mb-6">
-            <p className="text-red-400">❌ {error}</p>
+          <div className="bg-red-950 border border-red-800 rounded-lg p-4 mb-6 flex items-center gap-2">
+            <HiXCircle className="text-2xl text-red-400 flex-shrink-0" />
+            <p className="text-red-400">{error}</p>
           </div>
         )}
 
