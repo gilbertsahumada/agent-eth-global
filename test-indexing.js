@@ -3,11 +3,13 @@ const path = require('path');
 async function testIndexing() {
     const filePath = path.join(__dirname, 'front-end/public/vrf.md');
 
+    const PORT = 3001
+
     console.log('Testing indexing with file:', filePath);
-    console.log('Sending request to: http://localhost:3000/api/projects');
+    console.log(`Sending request to: http://localhost:${PORT}/api/projects`);
 
     try {
-        const response = await fetch('http://localhost:3000/api/projects', {
+        const response = await fetch(`http://localhost:${PORT}/api/projects`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
