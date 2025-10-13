@@ -3,15 +3,27 @@ import { QdranSimpleService } from "@/lib/qdrant-simple";
 import { supabase } from "@/lib/supabase";
 import { randomUUID } from "crypto";
 import path from "path";
+import { writeFile, mkdir } from "fs/promises";
+import { existsSync } from "fs";
 
 export async function POST(req: NextRequest) {
     try {
-        const { name, description, filePath } = await req.json();
+        const formData = await req.formData();
+        const name = formData.get('name') as string;
+        const description = formData.get('description') as string;
+        const file = formData.get('file') as File;
 
         // Validaciones
-        if (!name || !filePath) {
+        if (!name || !file) {
             return NextResponse.json(
-                { error: "name and filePath are required" },
+                { error: "name and file are required" },
+                { status: 400 }
+            );
+        }
+
+        if (!file.name.endsWith('.md')) {
+            return NextResponse.json(
+                { error: "File must be a .md (Markdown) file" },
                 { status: 400 }
             );
         }
@@ -19,6 +31,21 @@ export async function POST(req: NextRequest) {
         // Generar ID único para el proyecto
         const projectId = randomUUID();
         const collectionName = `project_${projectId.replace(/-/g, '_')}`;
+
+        // Crear directorio temporal si no existe
+        const uploadDir = path.join(process.cwd(), 'uploads');
+        if (!existsSync(uploadDir)) {
+            await mkdir(uploadDir, { recursive: true });
+        }
+
+        // Guardar archivo temporalmente
+        const bytes = await file.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        const fileName = `${projectId}_${file.name}`;
+        const filePath = path.join(uploadDir, fileName);
+
+        await writeFile(filePath, buffer);
+        console.log('[API /projects POST] File saved:', filePath);
 
         // 1. Crear proyecto en Supabase
         const { data: project, error: projectError } = await supabase
@@ -45,13 +72,12 @@ export async function POST(req: NextRequest) {
         await qdrantService.processMarkdownFile(filePath, projectId);
 
         // 3. Registrar documento en Supabase
-        const fileName = path.basename(filePath);
         const { error: docError } = await supabase
             .from('project_documents')
             .insert({
                 project_id: projectId,
                 file_path: filePath,
-                file_name: fileName
+                file_name: file.name
             });
 
         if (docError) {
