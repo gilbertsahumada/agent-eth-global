@@ -5,8 +5,9 @@ import requests
 import json
 from hyperon import MeTTa
 
-AGENT_NAME = "sherry_asi_agent"
-AGENT_SEED = "sherry_asi_agent_seed_123"
+AGENT_NAME = "EtHGlobalHackerAgent"
+AGENT_SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+# URL del backend Next.js que sirve
 NEXT_API_URL = "http://localhost:3000/api/projects" 
 
 agent = Agent(
@@ -51,8 +52,6 @@ def metta_reasoning(query, chunks):
     """
     result = metta.run(reasoning_template)
     return "\n".join(result)
-
-# === FUNCIÓN PRINCIPAL DE CONSULTA ===
 
 @agent.on_message(model=ChatProtocol)
 async def on_chat(ctx: Context, sender: str, msg: ChatProtocol):
