@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: metta-reasoning-service
-    env: python
-    buildCommand: pip install -r requirements_metta.txt
-    startCommand: uvicorn metta_service:app --host 0.0.0.0 --port $PORT
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0

@@ -84,24 +84,36 @@ Este proyecto se ha separado en dos componentes para permitir el despliegue en a
    railway domain
    ```
 
-### Opción B: Despliegue en Render
+### Opción B: Despliegue en Render (Recomendado - Más fácil)
+
+**Nota**: El proyecto incluye un archivo `render.yaml` en la raíz que configura automáticamente el despliegue.
 
 1. **Crear cuenta en Render**
    - Ve a https://render.com
+   - Regístrate con GitHub
 
-2. **Nuevo Web Service**
+2. **Desplegar usando Blueprint (render.yaml)**
+   - Click en "New +" → "Blueprint"
+   - Selecciona tu repositorio `agent-eth-global`
+   - Render detectará automáticamente el archivo `render.yaml`
+   - Click en "Apply"
+
+   **Alternativamente (configuración manual)**:
    - Click en "New +" → "Web Service"
    - Conecta tu repositorio de GitHub
-
-3. **Configuración**
+   - **Root Directory**: `singularity-metta`
    - **Build Command**: `pip install -r requirements_metta.txt`
    - **Start Command**: `uvicorn metta_service:app --host 0.0.0.0 --port $PORT`
    - **Environment**: Python 3
 
+3. **Selecciona plan**
+   - **Free**: Gratis pero se duerme después de 15 min sin uso
+   - **Starter**: $7/mes, siempre activo
+
 4. **Deploy**
    - Click en "Create Web Service"
-   - Espera a que termine el despliegue
-   - Copia la URL pública (ej: `https://tu-app.onrender.com`)
+   - Espera 3-5 minutos
+   - Copia la URL pública (ej: `https://metta-reasoning-service.onrender.com`)
 
 ### Opción C: Despliegue en Heroku
 
