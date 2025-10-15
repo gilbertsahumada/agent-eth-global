@@ -1,7 +1,15 @@
-from uagents import Agent, Context, Model
+from uagents import Agent, Context, Protocol, Model
+from datetime import datetime
 from uagents.setup import fund_agent_if_low
+from openai import OpenAI
 import requests
-import json
+from uagents_core.contrib.protocols.chat import (
+    ChatAcknowledgement,
+    ChatMessage,
+    EndSessionContent,
+    TextContent,
+    chat_protocol_spec,
+)
 
 # Define message models
 class QueryMessage(Model):
@@ -22,14 +30,24 @@ DOCS_SEARCH_URL = f"{NEXT_API_BASE}/docs"
 # Cambiar esta URL cuando despliegues el servicio MeTTa
 METTA_SERVICE_URL = "https://agent-eth-global.onrender.com"
 
-agent = Agent(
-    name=AGENT_NAME,
-    seed=AGENT_SEED,
-    port=8000,
-    endpoint=["http://127.0.0.1:8000/submit"]
+client = OpenAI(
+    # By default, we are using the ASI-1 LLM endpoint and model
+    base_url='https://api.asi1.ai/v1',
+
+    # You can get an ASI-1 api key by creating an account at https://asi1.ai/dashboard/api-keys
+    api_key='sk_490f7508fa434f1591e9c612e0424a235dde17cede9d462ca6fc450bb00793e3',
 )
 
-fund_agent_if_low(agent.wallet.address())
+agent = Agent(
+    #name=AGENT_NAME,
+    #seed=AGENT_SEED,
+    #port=8000,
+    #mailbox=True
+    #endpoint=["http://127.0.0.1:8000/submit"]
+)
+
+protocol = Protocol(spec=chat_protocol_spec)
+#fund_agent_if_low(agent.wallet.address())
 
 # Función para obtener proyectos disponibles
 def get_projects():
@@ -64,11 +82,13 @@ def call_metta_service(query, chunks):
         # Fallback: retornar análisis simple sin MeTTa
         return "Análisis simbólico no disponible en este momento."
 
-@agent.on_message(model=QueryMessage)
-async def handle_query(ctx: Context, sender: str, msg: QueryMessage):
-    query = msg.query
+@protocol.on_message(ChatMessage)
+async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
+    query = msg.content
     ctx.logger.info(f"🔎 Recibida pregunta: {query}")
 
+    await ctx.send(sender,ChatAcknowledgement(timestamp=datetime.now(), acknowledged_msg_id=msg.msg_id),
+    )
     try:
         # Obtener proyectos disponibles
         projects = get_projects()
@@ -96,6 +116,7 @@ async def handle_query(ctx: Context, sender: str, msg: QueryMessage):
                 )
                 response.raise_for_status()
                 data = response.json()
+                ctx.logger.info(f"🔍 Resultados de '{project_name}': {data.get('count', 0)}")
 
                 if data and "results" in data and data["results"]:
                     # Agregar nombre del proyecto a cada chunk
@@ -127,15 +148,28 @@ async def handle_query(ctx: Context, sender: str, msg: QueryMessage):
             f"- [{c.get('project_name', 'Unknown')}] {c['content'][:120]}..."
             for c in top_chunks[:3]
         ])
-        final_response = f"🤖 Basado en la documentación, encontré lo siguiente:\n\n{docs_summary}\n\n🧠 Razonamiento estructurado:\n{reasoning}"
+        #final_response = f"🤖 Basado en la documentación, encontré lo siguiente:\n\n{docs_summary}\n\n🧠 Razonamiento estructurado:\n{reasoning}"
 
-        await ctx.send(sender, ResponseMessage(response=final_response))
+        response = ChatMessage(
+            timestamp=datetime.utcnow(),
+            msg_id=msg.msg_id,
+            content=[
+                TextContent(text=f"🤖 Basado en la documentación, encontré lo siguiente:\n\n{docs_summary}\n\n🧠 Razonamiento estructurado:\n{reasoning}"),
+                EndSessionContent()
+            ]
+        )
+
+        await ctx.send(sender, ResponseMessage(response=response))
 
     except Exception as e:
         await ctx.send(sender, ResponseMessage(
             response=f"Error al procesar tu consulta: {e}"
         ))
         ctx.logger.error(f"❌ Error: {e}")
+
+@protocol.on_message(ChatAcknowledgement)
+async def handle_acknowledgement(ctx: Context, sender: str, msg: ChatAcknowledgement):
+    ctx.logger.info(f"Received acknowledgement from {sender} for message: {msg.acknowledged_msg_id}")
 
 # === BOOT DEL AGENTE ===
 
@@ -146,6 +180,9 @@ async def on_startup(ctx: Context):
     ctx.logger.info(f"🌐 Listening on port 8000")
     ctx.logger.info(f"📚 Conectado a Next.js API: {NEXT_API_BASE}")
     ctx.logger.info(f"🧠 Conectado a MeTTa Service: {METTA_SERVICE_URL}")
+
+# Enabling chat functionality
+agent.include(protocol, publish_manifest=True)
 
 if __name__ == "__main__":
     agent.run()
