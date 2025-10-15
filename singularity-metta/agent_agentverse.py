@@ -14,13 +14,13 @@ AGENT_NAME = "EtHGlobalHackerAgent"
 AGENT_SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 
 # URL del backend Next.js
-NEXT_API_BASE = "https://agent-eth-global.vercel.app//api"
+NEXT_API_BASE = "https://agent-eth-global.vercel.app/api"
 PROJECTS_URL = f"{NEXT_API_BASE}/projects"
 DOCS_SEARCH_URL = f"{NEXT_API_BASE}/docs"
 
 # URL del servicio MeTTa (desplegado separadamente)
 # Cambiar esta URL cuando despliegues el servicio MeTTa
-METTA_SERVICE_URL = "https://your-metta-service.com/api/reason"
+METTA_SERVICE_URL = "https://agent-eth-global.onrender.com"
 
 agent = Agent(
     name=AGENT_NAME,
