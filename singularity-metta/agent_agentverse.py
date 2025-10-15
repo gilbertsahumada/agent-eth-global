@@ -2,7 +2,6 @@ from uagents import Agent, Context, Model
 from uagents.setup import fund_agent_if_low
 import requests
 import json
-from hyperon import MeTTa
 
 # Define message models
 class QueryMessage(Model):
@@ -13,10 +12,15 @@ class ResponseMessage(Model):
 
 AGENT_NAME = "EtHGlobalHackerAgent"
 AGENT_SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+
 # URL del backend Next.js
-NEXT_API_BASE = "http://localhost:3000/api"
+NEXT_API_BASE = "https://agent-eth-global.vercel.app//api"
 PROJECTS_URL = f"{NEXT_API_BASE}/projects"
-DOCS_SEARCH_URL = f"{NEXT_API_BASE}/docs" 
+DOCS_SEARCH_URL = f"{NEXT_API_BASE}/docs"
+
+# URL del servicio MeTTa (desplegado separadamente)
+# Cambiar esta URL cuando despliegues el servicio MeTTa
+METTA_SERVICE_URL = "https://your-metta-service.com/api/reason"
 
 agent = Agent(
     name=AGENT_NAME,
@@ -25,9 +29,7 @@ agent = Agent(
     endpoint=["http://127.0.0.1:8000/submit"]
 )
 
-# fund_agent_if_low(agent.wallet)  # Commented out for local development
-
-metta = MeTTa()
+fund_agent_if_low(agent.wallet.address())
 
 # Función para obtener proyectos disponibles
 def get_projects():
@@ -43,37 +45,24 @@ def get_projects():
         print(f"Error fetching projects: {e}")
         return []
 
-def text_to_metta_facts(chunks):
-    facts = []
-    for idx, chunk in enumerate(chunks):
-        content = chunk.get("content", "")
-        # Limpiamos texto y truncamos para evitar overflow
-        snippet = content.replace("\n", " ").replace('"', "'")[:400]
-        facts.append(f'!(doc chunk-{idx} "{snippet}")')
-    return "\n".join(facts)
-
-# Función para generar razonamiento simbólico
-def metta_reasoning(query, chunks):
-    base_facts = text_to_metta_facts(chunks)
-    reasoning_template = f"""
-    (bind $q "{query}")
-
-    ; Agregamos hechos
-    {base_facts}
-
-    ; Buscamos relaciones y dependencias simbólicas
-    (match &self
-        (doc $id $content)
-        (if (and (find $content "import") (find $content "deploy"))
-            (print "This section likely involves both import and deployment steps"))
-        (if (find $content "API")
-            (print "This section mentions API integration"))
-        (if (find $content "contract")
-            (print "This section involves smart contracts"))
-    )
+# Función para llamar al servicio MeTTa externo
+def call_metta_service(query, chunks):
     """
-    result = metta.run(reasoning_template)
-    return "\n".join(result)
+    Llama al servicio MeTTa desplegado separadamente para obtener razonamiento simbólico
+    """
+    try:
+        response = requests.post(
+            METTA_SERVICE_URL,
+            json={"query": query, "chunks": chunks},
+            timeout=15
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data.get("reasoning", "")
+    except Exception as e:
+        print(f"Error calling MeTTa service: {e}")
+        # Fallback: retornar análisis simple sin MeTTa
+        return "Análisis simbólico no disponible en este momento."
 
 @agent.on_message(model=QueryMessage)
 async def handle_query(ctx: Context, sender: str, msg: QueryMessage):
@@ -130,8 +119,8 @@ async def handle_query(ctx: Context, sender: str, msg: QueryMessage):
 
         ctx.logger.info(f"📚 {len(top_chunks)} snippets más relevantes seleccionados")
 
-        # Generamos reasoning simbólico con MeTTa
-        reasoning = metta_reasoning(query, top_chunks)
+        # Llamar al servicio MeTTa externo para razonamiento simbólico
+        reasoning = call_metta_service(query, top_chunks)
 
         # Creamos una respuesta combinada
         docs_summary = "\n".join([
@@ -156,6 +145,7 @@ async def on_startup(ctx: Context):
     ctx.logger.info(f"📍 Agent address: {agent.address}")
     ctx.logger.info(f"🌐 Listening on port 8000")
     ctx.logger.info(f"📚 Conectado a Next.js API: {NEXT_API_BASE}")
+    ctx.logger.info(f"🧠 Conectado a MeTTa Service: {METTA_SERVICE_URL}")
 
 if __name__ == "__main__":
     agent.run()
