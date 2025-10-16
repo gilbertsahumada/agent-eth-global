@@ -1,6 +1,6 @@
 import os 
 from uagents import Agent, Context, Protocol, Model
-from datetime import datetime
+from datetime import datetime, timezone
 from uagents.setup import fund_agent_if_low
 from openai import OpenAI
 import requests
@@ -89,9 +89,15 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
         projects = get_projects()
 
         if not projects:
-            await ctx.send(sender, ResponseMessage(
-                response="No hay proyectos indexados disponibles. Por favor indexa documentación primero."
-            ))
+            no_projects_msg = ChatMessage(
+                timestamp=datetime.now(timezone.utc),
+                msg_id=msg.msg_id,
+                content=[
+                    TextContent(text="No hay proyectos indexados disponibles. Por favor indexa documentación primero."),
+                    EndSessionContent()
+                ]
+            )
+            await ctx.send(sender, no_projects_msg)
             return
 
         ctx.logger.info(f"📚 Buscando en {len(projects)} proyecto(s)")
@@ -124,9 +130,15 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
                 continue
 
         if not all_chunks:
-            await ctx.send(sender, ResponseMessage(
-                response=f"No encontré información relevante sobre '{query}' en la documentación."
-            ))
+            no_results_msg = ChatMessage(
+                timestamp=datetime.now(timezone.utc),
+                msg_id=msg.msg_id,
+                content=[
+                    TextContent(text=f"No encontré información relevante sobre '{query}' en la documentación."),
+                    EndSessionContent()
+                ]
+            )
+            await ctx.send(sender, no_results_msg)
             return
 
         # Ordenar por score (si existe) y tomar los top 5
@@ -146,7 +158,7 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
         #final_response = f"🤖 Basado en la documentación, encontré lo siguiente:\n\n{docs_summary}\n\n🧠 Razonamiento estructurado:\n{reasoning}"
 
         response = ChatMessage(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             msg_id=msg.msg_id,
             content=[
                 TextContent(text=f"🤖 Basado en la documentación, encontré lo siguiente:\n\n{docs_summary}\n\n🧠 Razonamiento estructurado:\n{reasoning}"),
@@ -154,12 +166,18 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
             ]
         )
 
-        await ctx.send(sender, ResponseMessage(response=response))
+        await ctx.send(sender, response)
 
     except Exception as e:
-        await ctx.send(sender, ResponseMessage(
-            response=f"Error al procesar tu consulta: {e}"
-        ))
+        error_response = ChatMessage(
+            timestamp=datetime.now(timezone.utc),
+            msg_id=msg.msg_id,
+            content=[
+                TextContent(text=f"Error al procesar tu consulta: {e}"),
+                EndSessionContent()
+            ]
+        )
+        await ctx.send(sender, error_response)
         ctx.logger.error(f"❌ Error: {e}")
 
 @protocol.on_message(ChatAcknowledgement)
