@@ -1,3 +1,4 @@
+import os 
 from uagents import Agent, Context, Protocol, Model
 from datetime import datetime
 from uagents.setup import fund_agent_if_low
@@ -21,21 +22,15 @@ class ResponseMessage(Model):
 AGENT_NAME = "EtHGlobalHackerAgent"
 AGENT_SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 
-# URL del backend Next.js
-NEXT_API_BASE = "https://agent-eth-global.vercel.app/api"
+NEXT_API_BASE = os.getenv("NEXT_API_BASE_URL", "https://agent-eth-global.vercel.app/api")
 PROJECTS_URL = f"{NEXT_API_BASE}/projects"
 DOCS_SEARCH_URL = f"{NEXT_API_BASE}/docs"
+METTA_SERVICE_URL = os.getenv("METTA_SERVICE_URL", "https://agent-eth-global.onrender.com")
 
-# URL del servicio MeTTa (desplegado separadamente)
-# Cambiar esta URL cuando despliegues el servicio MeTTa
-METTA_SERVICE_URL = "https://agent-eth-global.onrender.com"
 
 client = OpenAI(
-    # By default, we are using the ASI-1 LLM endpoint and model
     base_url='https://api.asi1.ai/v1',
-
-    # You can get an ASI-1 api key by creating an account at https://asi1.ai/dashboard/api-keys
-    api_key='sk_490f7508fa434f1591e9c612e0424a235dde17cede9d462ca6fc450bb00793e3',
+    api_key=os.getenv("ASI1_API_KEY")
 )
 
 agent = Agent(
@@ -85,7 +80,7 @@ def call_metta_service(query, chunks):
 @protocol.on_message(ChatMessage)
 async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
     query = msg.content
-    ctx.logger.info(f"🔎 Recibida pregunta: {query}")
+    ctx.logger.info(f"🔎 Pregunta recibida : {query}")
 
     await ctx.send(sender,ChatAcknowledgement(timestamp=datetime.now(), acknowledged_msg_id=msg.msg_id),
     )
