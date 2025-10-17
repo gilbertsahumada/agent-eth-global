@@ -3,10 +3,11 @@ import os
 import ssl
 import certifi
 import requests
+import json
 from typing import Any, Dict, List
 from uuid import uuid4
 from hyperon import MeTTa
-from uagents import Agent, Context, Model, Protocol
+from uagents import Agent, Context, Protocol
 from uagents_core.contrib.protocols.chat import (
     ChatAcknowledgement,
     ChatMessage,
@@ -33,14 +34,6 @@ agent = Agent(
     mailbox=True,  
     #publish_agent_details=False
 )
-
-class ReasoningRequest(Model):
-    query: str
-    chunks: List[Dict[str, Any]]
-
-class ReasoningResponse(Model):
-    reasoning: str
-    status: str = "success"
 
 # Función para obtener proyectos disponibles
 def get_projects():
@@ -116,6 +109,7 @@ def create_text_chat(text: str, end_session: bool = False) -> ChatMessage:
 
 @chat_proto.on_message(ChatMessage)
 async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
+    ctx.logger.info(f"📩 Nuevo mensaje de {sender}")
     """Handle incoming chat messages and process reasoning queries."""
     ctx.storage.set(str(ctx.session), sender)
     await ctx.send(
@@ -125,83 +119,60 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
 
     for item in msg.content:
         if isinstance(item, TextContent):
-            user_query = item.text.strip()
-            ctx.logger.info(f"🔎 Pregunta recibida de {sender}: {user_query}")
+            text = item.text.strip()
+            ctx.logger.info(f"🔎 Mensaje recibido de {sender}: {text[:100]}...")
 
-            try:
-                # Obtener proyectos disponibles
-                projects = get_projects()
-
-                if not projects:
-                    await ctx.send(sender, create_text_chat(
-                        "No hay proyectos indexados disponibles. Por favor indexa documentación primero."
-                    ))
+            # Check if this is a reasoning request
+            if text.startswith("REASONING_REQUEST:"):
+                # Parse: REASONING_REQUEST:session_id:json_data
+                parts = text.split(":", 2)
+                if len(parts) != 3:
+                    ctx.logger.error("Invalid REASONING_REQUEST format")
                     return
 
-                ctx.logger.info(f"📚 Buscando en {len(projects)} proyecto(s)")
+                session_id = parts[1]
+                json_data = parts[2]
 
-                # Buscar en todos los proyectos y combinar resultados
-                all_chunks = []
-                for project in projects:
-                    project_id = project.get("id")
-                    project_name = project.get("name", "Unknown")
+                ctx.logger.info(f"🧠 Processing reasoning request for session {session_id}")
 
-                    try:
-                        # Llamada al endpoint de búsqueda
-                        response = requests.get(
-                            DOCS_SEARCH_URL,
-                            params={"projectId": project_id, "searchText": user_query},
-                            timeout=10
-                        )
-                        response.raise_for_status()
-                        data = response.json()
-                        ctx.logger.info(f"🔍 Resultados de '{project_name}': {data.get('count', 0)}")
+                try:
+                    # Parse JSON data
+                    data = json.loads(json_data)
+                    query = data.get("query", "")
+                    chunks = data.get("chunks", [])
 
-                        if data and "results" in data and data["results"]:
-                            # Agregar nombre del proyecto a cada chunk
-                            for chunk in data["results"]:
-                                chunk["project_name"] = project_name
-                            all_chunks.extend(data["results"])
-                            ctx.logger.info(f"✅ {len(data['results'])} resultados de '{project_name}'")
-                    except Exception as e:
-                        ctx.logger.warning(f"⚠️ Error buscando en proyecto '{project_name}': {e}")
-                        continue
+                    ctx.logger.info(f"📝 Query: {query}")
+                    ctx.logger.info(f"📚 Analyzing {len(chunks)} chunks")
 
-                if not all_chunks:
-                    await ctx.send(sender, create_text_chat(
-                        f"No encontré información relevante sobre '{user_query}' en la documentación."
-                    ))
-                    return
+                    # Perform MeTTa reasoning
+                    reasoning = metta_reasoning(query, chunks)
+                    ctx.logger.info(f"✅ Reasoning completed")
 
-                # Ordenar por score (si existe) y tomar los top 5
-                all_chunks.sort(key=lambda x: x.get("score", 0), reverse=True)
-                top_chunks = all_chunks[:5]
+                    # Send response back with same session_id
+                    response_text = f"REASONING_RESPONSE:{session_id}:{reasoning}"
+                    response_msg = ChatMessage(
+                        timestamp=datetime.now(timezone.utc),
+                        msg_id=uuid4(),
+                        content=[TextContent(text=response_text)]
+                    )
 
-                ctx.logger.info(f"📚 {len(top_chunks)} snippets más relevantes seleccionados")
+                    await ctx.send(sender, response_msg)
+                    ctx.logger.info(f"📤 Sent reasoning response for session {session_id}")
 
-                # Usar MeTTa para razonamiento simbólico (local, no servicio externo)
-                reasoning = metta_reasoning(user_query, top_chunks)
-                ctx.logger.info(f"🧠 Razonamiento generado: {reasoning}")
-
-                # Crear resumen de documentación
-                docs_summary = "\n".join([
-                    f"- [{c.get('project_name', 'Unknown')}] {c['content'][:120]}..."
-                    for c in top_chunks[:3]
-                ])
-
-                final_response = f"🤖 Basado en la documentación, encontré lo siguiente:\n\n{docs_summary}\n\n🧠 Razonamiento estructurado:\n{reasoning}"
-
-                # Send the response back
-                await ctx.send(sender, create_text_chat(final_response))
-
-            except Exception as e:
-                ctx.logger.error(f"Error procesando query: {e}")
-                await ctx.send(
-                    sender,
-                    create_text_chat(f"Error al procesar tu consulta: {str(e)}")
-                )
-        else:
-            ctx.logger.info(f"Contenido inesperado de {sender}")
+                except json.JSONDecodeError as e:
+                    ctx.logger.error(f"❌ Invalid JSON in reasoning request: {e}")
+                except Exception as e:
+                    ctx.logger.error(f"❌ Error processing reasoning: {e}")
+                    # Send error response
+                    error_text = f"REASONING_RESPONSE:{session_id}:Error: {str(e)}"
+                    error_msg = ChatMessage(
+                        timestamp=datetime.now(timezone.utc),
+                        msg_id=uuid4(),
+                        content=[TextContent(text=error_text)]
+                    )
+                    await ctx.send(sender, error_msg)
+            else:
+                ctx.logger.info(f"ℹ️ Non-reasoning message from {sender}: {text[:50]}...")
 
 @chat_proto.on_message(ChatAcknowledgement)
 async def handle_ack(ctx: Context, sender: str, msg: ChatAcknowledgement):

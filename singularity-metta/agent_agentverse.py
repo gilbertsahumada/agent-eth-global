@@ -1,10 +1,12 @@
 import os
+import json
 from uagents import Agent, Context, Protocol, Model
 from datetime import datetime, timezone
 from uagents.setup import fund_agent_if_low
 from openai import OpenAI
 import requests
 from typing import Any, Dict, List
+from uuid import uuid4
 from uagents_core.contrib.protocols.chat import (
     ChatAcknowledgement,
     ChatMessage,
@@ -19,12 +21,6 @@ class QueryMessage(Model):
 
 class ResponseMessage(Model):
     response: str
-
-# MeTTa Agent Message Models
-class ReasoningRequest(Model):
-    """Request model for MeTTa reasoning"""
-    query: str
-    chunks: List[Dict[str, Any]]
 
 AGENT_NAME = "EtHGlobalHackerAgent"
 AGENT_SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
@@ -62,25 +58,33 @@ def get_projects():
         print(f"Error fetching projects: {e}")
         return []
 
-# Storage for MeTTa reasoning responses (used for agent-to-agent communication)
+# Storage for MeTTa reasoning responses (key: session_id, value: reasoning text)
 metta_reasoning_cache = {}
 
 @protocol.on_message(ChatMessage)
-async def handle_metta_response(ctx: Context, sender: str, msg: ChatMessage):
-    """
-    Handles responses from the MeTTa reasoning agent.
-    Stores the reasoning results in cache for later use.
-    """
-    ctx.logger.info(f"🧠 Received MeTTa reasoning response from {sender}")
-    ctx.logger.info(f"   Status: {msg.status}")
-    ctx.logger.info(f"   Dependencies: {len(msg.dependencies)}")
-    ctx.logger.info(f"   Execution steps: {len(msg.execution_order)}")
-
-    # Store in cache with sender as key
-    metta_reasoning_cache[sender] = msg
+async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
+    # Check if this is a response from MeTTa agent
+    if sender == METTA_AGENT_ADDRESS:
+        for item in msg.content:
+            if isinstance(item, TextContent):
+                text = item.text
+                if text.startswith("REASONING_RESPONSE:"):
+                    # Parse: REASONING_RESPONSE:session_id:reasoning_text
+                    parts = text.split(":", 2)
+                    if len(parts) == 3:
+                        session_id = parts[1]
+                        reasoning_text = parts[2]
+                        metta_reasoning_cache[session_id] = reasoning_text
+                        ctx.logger.info(f"🧠 Stored MeTTa reasoning for session {session_id}")
+                        # Send acknowledgement
+                        await ctx.send(sender, ChatAcknowledgement(
+                            timestamp=datetime.now(timezone.utc),
+                            acknowledged_msg_id=msg.msg_id
+                        ))
+                        return
 
 @protocol.on_message(ChatMessage)
-async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
+async def handle_user_message(ctx: Context, sender: str, msg: ChatMessage):
     # Extract text from message content (FIX: msg.content is a list, not a string)
     query = ''
     for item in msg.content:
@@ -207,39 +211,38 @@ What would you like to know about any of these projects?"""
             try:
                 ctx.logger.info(f"🧠 Requesting MeTTa reasoning from {METTA_AGENT_ADDRESS}")
 
-                # Prepare chunks for MeTTa agent
-                reasoning_request = ReasoningRequest(
-                    query=query,
-                    chunks=top_chunks
+                # Prepare data for MeTTa agent (serialize as JSON)
+                reasoning_data = {
+                    "query": query,
+                    "chunks": top_chunks
+                }
+
+                # Create session ID to track this reasoning request
+                session_id = str(uuid4())
+
+                # Send ChatMessage to MeTTa agent with JSON payload
+                metta_request_msg = ChatMessage(
+                    timestamp=datetime.now(timezone.utc),
+                    msg_id=uuid4(),
+                    content=[
+                        TextContent(text=f"REASONING_REQUEST:{session_id}:{json.dumps(reasoning_data)}")
+                    ]
                 )
 
-                # Send request to MeTTa agent
-                await ctx.send(METTA_AGENT_ADDRESS, reasoning_request)
+                await ctx.send(METTA_AGENT_ADDRESS, metta_request_msg)
 
                 # Wait for response (with timeout)
                 import asyncio
                 max_wait = 10  # 10 seconds timeout
                 waited = 0
-                while METTA_AGENT_ADDRESS not in metta_reasoning_cache and waited < max_wait:
+                while session_id not in metta_reasoning_cache and waited < max_wait:
                     await asyncio.sleep(0.5)
                     waited += 0.5
 
                 # Check if we got a response
-                if METTA_AGENT_ADDRESS in metta_reasoning_cache:
-                    metta_response = metta_reasoning_cache.pop(METTA_AGENT_ADDRESS)
-                    if metta_response.status == "success":
-                        metta_reasoning_text = metta_response.reasoning
-
-                        # Format structured data
-                        if metta_response.execution_order:
-                            metta_reasoning_text += "\n\n**Execution Order:**\n" + "\n".join(metta_response.execution_order)
-
-                        if metta_response.conflicts and metta_response.conflicts[0] != "No conflicts detected":
-                            metta_reasoning_text += "\n\n**Potential Conflicts:**\n" + "\n".join(f"- {c}" for c in metta_response.conflicts)
-
-                        ctx.logger.info(f"✅ MeTTa reasoning received and processed")
-                    else:
-                        ctx.logger.warning(f"⚠️ MeTTa reasoning returned error status")
+                if session_id in metta_reasoning_cache:
+                    metta_reasoning_text = metta_reasoning_cache.pop(session_id)
+                    ctx.logger.info(f"✅ MeTTa reasoning received and processed")
                 else:
                     ctx.logger.warning(f"⚠️ MeTTa reasoning timeout after {max_wait}s")
             except Exception as e:
