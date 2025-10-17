@@ -2,6 +2,8 @@ import { QdranSimpleService } from "@/lib/qdrant-simple";
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
+// @
+
 /**
  * POST /api/docs/multi-search
  *

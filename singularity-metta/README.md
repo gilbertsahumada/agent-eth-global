@@ -1,8 +1,8 @@
 # 🤖 Multi-Agent Documentation Assistant
 
-Sistema multi-agente para búsqueda inteligente en documentación blockchain usando ASI Alliance technologies.
+Multi-agent system for intelligent blockchain documentation search using ASI Alliance technologies.
 
-## 📋 Arquitectura
+## 📋 Architecture
 
 ```
 User Query
@@ -14,61 +14,61 @@ Project Router (8002) → Search (8003) → [MeTTa (8006) + LLM (8004) + CodeGen
 Final Response
 ```
 
-## 🤖 Agentes
+## 🤖 Agents
 
-### Desplegables en AgentVerse
+### Deployable on AgentVerse
 
-1. **Orchestrator Agent** (`agents/orchestrator/`) - Puerto 8000
-   - Coordinador principal
-   - Entry point para usuarios
-   - Maneja chat protocol
+1. **Orchestrator Agent** (`agents/orchestrator/`) - Port 8000
+   - Main coordinator
+   - User entry point
+   - Handles chat protocol
 
-2. **Project Router Agent** (`agents/project-router/`) - Puerto 8002
-   - Routing inteligente a proyectos relevantes
-   - Scoring multi-factor
+2. **Project Router Agent** (`agents/project-router/`) - Port 8002
+   - Intelligent routing to relevant projects
+   - Multi-factor scoring
 
-3. **Search Agent** (`agents/search/`) - Puerto 8003
-   - Búsqueda paralela en Qdrant
-   - Agregación de resultados
+3. **Search Agent** (`agents/search/`) - Port 8003
+   - Parallel search in Qdrant
+   - Result aggregation
 
-4. **LLM Agent** (`agents/llm/`) - Puerto 8004
-   - Respuestas con ASI-1
+4. **LLM Agent** (`agents/llm/`) - Port 8004
+   - ASI-1 responses
    - Context-aware
 
-5. **Code Generator Agent** (`agents/code-generator/`) - Puerto 8005
-   - Extracción de código
-   - Auto-detección de lenguaje
+5. **Code Generator Agent** (`agents/code-generator/`) - Port 8005
+   - Code extraction
+   - Auto language detection
 
-6. **Synthesis Agent** (`agents/synthesis/`) - Puerto 8007
-   - Combina resultados
+6. **Synthesis Agent** (`agents/synthesis/`) - Port 8007
+   - Combines results
    - Markdown formatting
 
 ### Local Only
 
-7. **MeTTa Reasoning Agent** (`agents/metta-reasoning/`) - Puerto 8006
-   - Razonamiento simbólico con hyperon
-   - Detección de dependencias/conflictos
-   - **DEBE correr localmente** (requiere `hyperon`)
+7. **MeTTa Reasoning Agent** (`agents/metta-reasoning/`) - Port 8006
+   - Symbolic reasoning with hyperon
+   - Dependency/conflict detection
+   - **MUST run locally** (requires `hyperon`)
 
 ## 🚀 Quick Start
 
-### Prerequisitos
+### Prerequisites
 
 ```bash
 # Python 3.9+
 python --version
 
-# Instalar dependencias
+# Install dependencies
 cd singularity-metta
 pip install uagents uagents_core requests openai
 
-# Solo para MeTTa Agent (local)
+# Only for MeTTa Agent (local)
 pip install hyperon
 ```
 
-### Variables de Entorno
+### Environment Variables
 
-Crea `.env` en `singularity-metta/`:
+Create `.env` in `singularity-metta/`:
 
 ```bash
 # API Keys
@@ -84,9 +84,9 @@ CODE_GEN_ADDRESS=agent1q...
 SYNTHESIS_ADDRESS=agent1q...
 ```
 
-### Ejecutar Localmente (Testing)
+### Run Locally (Testing)
 
-**Opción 1: Ejecutar todos (requiere 8 terminales)**
+**Option 1: Run all agents (requires 8 terminals)**
 
 ```bash
 # Terminal 1 - Orchestrator

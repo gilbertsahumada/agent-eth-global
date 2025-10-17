@@ -1,9 +1,10 @@
-import os 
+import os
 from uagents import Agent, Context, Protocol, Model
 from datetime import datetime, timezone
 from uagents.setup import fund_agent_if_low
 from openai import OpenAI
 import requests
+from typing import Any, Dict, List
 from uagents_core.contrib.protocols.chat import (
     ChatAcknowledgement,
     ChatMessage,
@@ -19,13 +20,22 @@ class QueryMessage(Model):
 class ResponseMessage(Model):
     response: str
 
+# MeTTa Agent Message Models
+class ReasoningRequest(Model):
+    """Request model for MeTTa reasoning"""
+    query: str
+    chunks: List[Dict[str, Any]]
+
 AGENT_NAME = "EtHGlobalHackerAgent"
 AGENT_SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 
 NEXT_API_BASE = os.getenv("NEXT_API_BASE_URL", "https://agent-eth-global.vercel.app/api")
 PROJECTS_URL = f"{NEXT_API_BASE}/projects"
 DOCS_SEARCH_URL = f"{NEXT_API_BASE}/docs"
-METTA_SERVICE_URL = os.getenv("METTA_SERVICE_URL", "https://agent-eth-global.onrender.com")
+
+# MeTTa Agent Address (get from agent_v1/metta_service_agentverse.py startup logs)
+METTA_AGENT_ADDRESS = os.getenv("METTA_AGENT_ADDRESS", "")
+USE_METTA_REASONING = METTA_AGENT_ADDRESS and METTA_AGENT_ADDRESS != ""
 
 
 client = OpenAI(
@@ -52,24 +62,22 @@ def get_projects():
         print(f"Error fetching projects: {e}")
         return []
 
-# Función para llamar al servicio MeTTa externo
-def call_metta_service(query, chunks):
+# Storage for MeTTa reasoning responses (used for agent-to-agent communication)
+metta_reasoning_cache = {}
+
+@protocol.on_message(ChatMessage)
+async def handle_metta_response(ctx: Context, sender: str, msg: ChatMessage):
     """
-    Llama al servicio MeTTa desplegado separadamente para obtener razonamiento simbólico
+    Handles responses from the MeTTa reasoning agent.
+    Stores the reasoning results in cache for later use.
     """
-    try:
-        response = requests.post(
-            METTA_SERVICE_URL,
-            json={"query": query, "chunks": chunks},
-            timeout=15
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data.get("reasoning", "")
-    except Exception as e:
-        print(f"Error calling MeTTa service: {e}")
-        # Fallback: retornar análisis simple sin MeTTa
-        return "Análisis simbólico no disponible en este momento."
+    ctx.logger.info(f"🧠 Received MeTTa reasoning response from {sender}")
+    ctx.logger.info(f"   Status: {msg.status}")
+    ctx.logger.info(f"   Dependencies: {len(msg.dependencies)}")
+    ctx.logger.info(f"   Execution steps: {len(msg.execution_order)}")
+
+    # Store in cache with sender as key
+    metta_reasoning_cache[sender] = msg
 
 @protocol.on_message(ChatMessage)
 async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
@@ -93,7 +101,21 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
                 timestamp=datetime.now(timezone.utc),
                 msg_id=msg.msg_id,
                 content=[
-                    TextContent(text="No indexed projects available. Please index documentation first."),
+                    TextContent(text="""👋 Hi! I'm your hackathon AI assistant, but I don't have any documentation indexed yet.
+
+📖 **To get started:**
+1. Upload documentation files (.md) through the web interface
+2. Index technologies you're planning to use (e.g., Chainlink, Polygon, The Graph)
+3. Come back and ask me anything!
+
+💡 **What I can help with once docs are uploaded:**
+- Implementation guides and tutorials
+- Code examples and best practices
+- Smart contract integration
+- API usage patterns
+- Debugging and troubleshooting
+
+Ready to upload some docs? Head to the main page and let's get building! 🚀"""),
                     EndSessionContent()
                 ]
             )
@@ -115,6 +137,7 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
                     params={"projectId": project_id, "searchText": query},
                     timeout=10
                 )
+                ctx.logger.info(f"🔍 Response : {response}")
                 response.raise_for_status()
                 data = response.json()
                 ctx.logger.info(f"🔍 Results from '{project_name}': {data.get('count', 0)}")
@@ -130,15 +153,38 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
                 continue
 
         if not all_chunks:
-            no_results_msg = ChatMessage(
+            # En lugar de decir "no encontré nada", ofrece ayuda con lo disponible
+            project_list = "\n".join([f"• {p.get('name', 'Unknown')}: {p.get('description', 'No description')}" for p in projects])
+            
+            helpful_response = f"""I couldn't find specific information about '{query}' in my indexed documentation.
+
+However, I have documentation for the following projects that might help you in this hackathon:
+
+{project_list}
+
+💡 **How I can help:**
+- Ask me how to implement any of these technologies
+- Request code examples or integration guides
+- Get step-by-step deployment instructions
+- Learn about smart contract interactions
+- Understand API usage patterns
+
+**Example questions:**
+- "How do I use [technology name]?"
+- "Show me an example of [specific feature]"
+- "What are the requirements for [project name]?"
+
+What would you like to know about any of these projects?"""
+            
+            helpful_msg = ChatMessage(
                 timestamp=datetime.now(timezone.utc),
                 msg_id=msg.msg_id,
                 content=[
-                    TextContent(text=f"I couldn't find relevant information about '{query}' in the documentation."),
+                    TextContent(text=helpful_response),
                     EndSessionContent()
                 ]
             )
-            await ctx.send(sender, no_results_msg)
+            await ctx.send(sender, helpful_msg)
             return
 
         # Sort by score (if exists) and take top 5
@@ -153,26 +199,98 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
             for c in top_chunks
         ])
 
+        # Request MeTTa reasoning if agent is available
+        metta_reasoning_text = None
+        ctx.logger.info(f"MeTTa reasoning enabled: {USE_METTA_REASONING}")
+        ctx.logger.info(f"MeTTa agent address: {METTA_AGENT_ADDRESS}")
+        if USE_METTA_REASONING:
+            try:
+                ctx.logger.info(f"🧠 Requesting MeTTa reasoning from {METTA_AGENT_ADDRESS}")
+
+                # Prepare chunks for MeTTa agent
+                reasoning_request = ReasoningRequest(
+                    query=query,
+                    chunks=top_chunks
+                )
+
+                # Send request to MeTTa agent
+                await ctx.send(METTA_AGENT_ADDRESS, reasoning_request)
+
+                # Wait for response (with timeout)
+                import asyncio
+                max_wait = 10  # 10 seconds timeout
+                waited = 0
+                while METTA_AGENT_ADDRESS not in metta_reasoning_cache and waited < max_wait:
+                    await asyncio.sleep(0.5)
+                    waited += 0.5
+
+                # Check if we got a response
+                if METTA_AGENT_ADDRESS in metta_reasoning_cache:
+                    metta_response = metta_reasoning_cache.pop(METTA_AGENT_ADDRESS)
+                    if metta_response.status == "success":
+                        metta_reasoning_text = metta_response.reasoning
+
+                        # Format structured data
+                        if metta_response.execution_order:
+                            metta_reasoning_text += "\n\n**Execution Order:**\n" + "\n".join(metta_response.execution_order)
+
+                        if metta_response.conflicts and metta_response.conflicts[0] != "No conflicts detected":
+                            metta_reasoning_text += "\n\n**Potential Conflicts:**\n" + "\n".join(f"- {c}" for c in metta_response.conflicts)
+
+                        ctx.logger.info(f"✅ MeTTa reasoning received and processed")
+                    else:
+                        ctx.logger.warning(f"⚠️ MeTTa reasoning returned error status")
+                else:
+                    ctx.logger.warning(f"⚠️ MeTTa reasoning timeout after {max_wait}s")
+            except Exception as e:
+                ctx.logger.error(f"❌ Error calling MeTTa agent: {e}")
+
         # Use ASI-1 LLM to generate intelligent response based on documentation
         llm_response = "I'm sorry, I couldn't process your query at this time."
         try:
-            r = client.chat.completions.create(
-                model="asi1-mini",
-                messages=[
-                    {"role": "system", "content": f"""
-You are an expert assistant in blockchain development and smart contracts.
-Your job is to help developers implement technologies based on official documentation.
+            # Build system prompt with MeTTa reasoning if available
+            system_prompt = f"""
+You are an expert AI assistant specialized in helping developers during hackathons with blockchain technologies and smart contracts.
+Your mission is to accelerate development by providing clear, actionable guidance based on official documentation.
 
-Relevant documentation context:
+🎯 **Your Role:**
+- Help developers implement technologies quickly and correctly
+- Provide practical code examples and step-by-step guides
+- Explain concepts clearly with a focus on getting things working
+- Be encouraging and supportive - hackathons are time-sensitive!
+
+📚 **Available Documentation Context:**
 {context_docs}
+"""
+            if metta_reasoning_text:
+                system_prompt += f"""
 
-Instructions:
-1. Respond based EXCLUSIVELY on the provided documentation
-2. If the question cannot be answered with the documentation, clearly state that you don't have that information
-3. Provide code examples when appropriate
-4. Be clear, concise, and technical
-5. Cite the project where you get the information when relevant
-                    """},
+🧠 **Symbolic Analysis (MeTTa):**
+{metta_reasoning_text}
+
+Use this to identify dependencies, execution order, and potential conflicts in your response.
+"""
+
+            system_prompt += """
+
+✅ **Response Guidelines:**
+1. **Be practical and actionable** - focus on what developers need to do NOW
+2. **Provide complete code examples** when relevant (not just snippets)
+3. **Mention prerequisites and dependencies** upfront
+4. **Structure your response** with clear steps or sections
+5. **Cite the source project** when referencing specific documentation
+6. **If something is missing from docs**, acknowledge it but offer alternative approaches or related information
+7. **Be encouraging** - remind them they're building something awesome!
+8. **Include troubleshooting tips** when relevant
+
+Remember: You're here to help hackers ship fast and win! 🚀
+"""
+
+            r = client.chat.completions.create(
+                #model="asi1-mini",
+                model="asi1-extended",
+                messages=[
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": query},
                 ],
                 max_tokens=2048,
@@ -183,9 +301,6 @@ Instructions:
             ctx.logger.error(f"❌ Error calling ASI-1: {e}")
             # Fallback: basic response
             llm_response = f"I found {len(top_chunks)} relevant sections in the documentation, but had issues generating a detailed response."
-
-        # Opcionalmente, agregar análisis simbólico de MeTTa (si el servicio está disponible)
-        # reasoning = call_metta_service(query, top_chunks)
 
         response = ChatMessage(
             timestamp=datetime.now(timezone.utc),
@@ -224,12 +339,23 @@ async def on_startup(ctx: Context):
     ctx.logger.info(f"📚 Connected to Next.js API: {NEXT_API_BASE}")
     ctx.logger.info(f"🔍 Projects URL: {PROJECTS_URL}")
     ctx.logger.info(f"📖 Docs Search URL: {DOCS_SEARCH_URL}")
+    ctx.logger.info("")
 
     # Validate ASI-1 API key
     if not os.getenv("ASI1_API_KEY") or os.getenv("ASI1_API_KEY") == "INSERT_YOUR_API_KEY_HERE":
         ctx.logger.warning("⚠️ ASI1_API_KEY is not configured. Agent won't be able to generate intelligent responses.")
     else:
         ctx.logger.info("✅ ASI-1 LLM configured correctly")
+
+    # Check MeTTa integration
+    if USE_METTA_REASONING:
+        ctx.logger.info(f"✅ MeTTa reasoning enabled")
+        ctx.logger.info(f"   MeTTa Agent address: {METTA_AGENT_ADDRESS}")
+        ctx.logger.info("   Responses will include symbolic reasoning analysis")
+    else:
+        ctx.logger.warning("⚠️ MeTTa reasoning disabled")
+        ctx.logger.info("   To enable: Set METTA_AGENT_ADDRESS in .env")
+        ctx.logger.info("   Get address from agent_v1/metta_service_agentverse.py startup logs")
 
 # Enabling chat functionality
 agent.include(protocol, publish_manifest=True)

@@ -22,7 +22,7 @@ os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
 # API Configuration
 NEXT_API_BASE = os.getenv("NEXT_API_BASE_URL", "https://agent-eth-global.vercel.app/api")
 PROJECTS_URL = f"{NEXT_API_BASE}/projects"
-DOCS_SEARCH_URL = f"{NEXT_API_BASE}/docs"
+DOCS_SEARCH_URL = f"{NEXT_API_BASE}/multi-search"
 
 
 # Initialize agent
