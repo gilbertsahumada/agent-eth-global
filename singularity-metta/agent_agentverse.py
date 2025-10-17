@@ -33,6 +33,9 @@ DOCS_SEARCH_URL = f"{NEXT_API_BASE}/docs"
 METTA_AGENT_ADDRESS = os.getenv("METTA_AGENT_ADDRESS", "")
 USE_METTA_REASONING = METTA_AGENT_ADDRESS and METTA_AGENT_ADDRESS != ""
 
+# Conversation history settings
+MAX_HISTORY_MESSAGES = 20  # Keep last 20 messages (10 user + 10 assistant)
+
 
 client = OpenAI(
     base_url='https://api.asi1.ai/v1',
@@ -92,9 +95,34 @@ async def handle_user_message(ctx: Context, sender: str, msg: ChatMessage):
             query += item.text
 
     query = query.strip()
-    ctx.logger.info(f"🔎 Query received: {query}")
+    ctx.logger.info(f"🔎 Query received from {sender}: {query}")
 
     await ctx.send(sender, ChatAcknowledgement(timestamp=datetime.now(timezone.utc), acknowledged_msg_id=msg.msg_id))
+
+    # Retrieve or initialize conversation history for this user
+    history_key = f"conversation_history_{sender}"
+    conversation_history = ctx.storage.get(history_key) or []
+
+    ctx.logger.info(f"📚 Conversation history: {len(conversation_history)} messages")
+
+    # Check for special commands
+    if query.lower() in ["/clear", "/reset", "/new"]:
+        ctx.storage.set(history_key, [])
+        ctx.logger.info(f"🗑️ Cleared conversation history for {sender}")
+
+        clear_msg = ChatMessage(
+            timestamp=datetime.now(timezone.utc),
+            msg_id=msg.msg_id,
+            content=[
+                TextContent(text="✅ Conversation history cleared! Starting fresh."),
+                EndSessionContent()
+            ]
+        )
+        await ctx.send(sender, clear_msg)
+        return
+
+    # Add user message to history
+    conversation_history.append({"role": "user", "content": query})
 
     try:
         # Obtener proyectos disponibles
@@ -289,13 +317,19 @@ Use this to identify dependencies, execution order, and potential conflicts in y
 Remember: You're here to help hackers ship fast and win! 🚀
 """
 
+            # Build messages with conversation history
+            messages = [{"role": "system", "content": system_prompt}]
+
+            # Add conversation history (excluding the last user message we just added)
+            messages.extend(conversation_history[:-1])
+
+            # Add current query
+            messages.append({"role": "user", "content": query})
+
             r = client.chat.completions.create(
                 #model="asi1-mini",
                 model="asi1-extended",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": query},
-                ],
+                messages=messages,
                 max_tokens=2048,
             )
             llm_response = str(r.choices[0].message.content)
@@ -304,6 +338,18 @@ Remember: You're here to help hackers ship fast and win! 🚀
             ctx.logger.error(f"❌ Error calling ASI-1: {e}")
             # Fallback: basic response
             llm_response = f"I found {len(top_chunks)} relevant sections in the documentation, but had issues generating a detailed response."
+
+        # Add assistant response to conversation history
+        conversation_history.append({"role": "assistant", "content": llm_response})
+
+        # Truncate history if it exceeds max length (keep only recent messages)
+        if len(conversation_history) > MAX_HISTORY_MESSAGES:
+            conversation_history = conversation_history[-MAX_HISTORY_MESSAGES:]
+            ctx.logger.info(f"✂️ Truncated conversation history to {MAX_HISTORY_MESSAGES} messages")
+
+        # Save updated conversation history
+        ctx.storage.set(history_key, conversation_history)
+        ctx.logger.info(f"💾 Saved conversation history: {len(conversation_history)} messages")
 
         response = ChatMessage(
             timestamp=datetime.now(timezone.utc),
@@ -359,6 +405,12 @@ async def on_startup(ctx: Context):
         ctx.logger.warning("⚠️ MeTTa reasoning disabled")
         ctx.logger.info("   To enable: Set METTA_AGENT_ADDRESS in .env")
         ctx.logger.info("   Get address from agent_v1/metta_service_agentverse.py startup logs")
+
+    ctx.logger.info("")
+    ctx.logger.info("💬 Conversation Memory:")
+    ctx.logger.info(f"   Max history: {MAX_HISTORY_MESSAGES} messages per user")
+    ctx.logger.info("   Commands: /clear, /reset, /new (to clear history)")
+    ctx.logger.info("   Each user has their own conversation context")
 
 # Enabling chat functionality
 agent.include(protocol, publish_manifest=True)
