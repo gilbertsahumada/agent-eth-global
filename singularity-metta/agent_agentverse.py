@@ -33,13 +33,7 @@ client = OpenAI(
     api_key=os.getenv("ASI1_API_KEY")
 )
 
-agent = Agent(
-    #name=AGENT_NAME,
-    #seed=AGENT_SEED,
-    #port=8000,
-    #mailbox=True
-    #endpoint=["http://127.0.0.1:8000/submit"]
-)
+agent = Agent()
 
 protocol = Protocol(spec=chat_protocol_spec)
 #fund_agent_if_low(agent.wallet.address())

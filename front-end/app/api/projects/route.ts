@@ -11,6 +11,10 @@ export async function POST(req: NextRequest) {
         const formData = await req.formData();
         const name = formData.get('name') as string;
         const description = formData.get('description') as string;
+        const domain = formData.get('domain') as string;
+        const techStackStr = formData.get('techStack') as string;
+        const tagsStr = formData.get('tags') as string;
+        const keywordsStr = formData.get('keywords') as string;
         const file = formData.get('file') as File;
 
         // Validaciones
@@ -21,9 +25,24 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        if (!file.name.endsWith('.md')) {
+        // Parse JSON arrays (if provided)
+        let techStack: string[] = [];
+        let tags: string[] = [];
+        let keywords: string[] = [];
+
+        try {
+            if (techStackStr) techStack = JSON.parse(techStackStr);
+            if (tagsStr) tags = JSON.parse(tagsStr);
+            if (keywordsStr) keywords = JSON.parse(keywordsStr);
+        } catch (e) {
+            console.warn('[API /projects POST] Error parsing metadata arrays:', e);
+            // Continue with empty arrays if parsing fails
+        }
+
+        const isMarkdown = file.name.endsWith('.md') || file.name.endsWith('.mdx');
+        if (!isMarkdown) {
             return NextResponse.json(
-                { error: "File must be a .md (Markdown) file" },
+                { error: "File must be a .md or .mdx (Markdown) file" },
                 { status: 400 }
             );
         }
@@ -47,14 +66,21 @@ export async function POST(req: NextRequest) {
         await writeFile(filePath, buffer);
         console.log('[API /projects POST] File saved:', filePath);
 
-        // 1. Crear proyecto en Supabase
+        // 1. Crear proyecto en Supabase con metadata
         const { data: project, error: projectError } = await supabase
             .from('projects')
             .insert({
                 id: projectId,
                 name: name,
                 collection_name: collectionName,
-                description: description || null
+                description: description || null,
+                // Metadata for multi-agent routing
+                tech_stack: techStack.length > 0 ? techStack : [],
+                domain: domain || null,
+                tags: tags.length > 0 ? tags : [],
+                keywords: keywords.length > 0 ? keywords : [],
+                document_count: 1,  // We're indexing 1 file
+                last_indexed_at: new Date().toISOString()
             })
             .select()
             .single();

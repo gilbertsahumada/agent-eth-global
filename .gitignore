@@ -1,5 +1,7 @@
 PLAN.md
 SETUP-SUPABASE.md
+ARCHITECTURE.md
+MIGRATION_GUIDE.md
 
 # Python
 venv/

@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, uniqueIndex, integer, index } from 'drizzle-orm/pg-core';
 
 // Tabla de proyectos
 export const projects = pgTable('projects', {
@@ -6,11 +6,21 @@ export const projects = pgTable('projects', {
   name: text('name').notNull().unique(),
   collectionName: text('collection_name').notNull().unique(),
   description: text('description'),
+
+  // Metadata for intelligent routing and search
+  techStack: text('tech_stack').array(),  // e.g., ['Solidity', 'Hardhat', 'OpenZeppelin']
+  domain: text('domain'),  // e.g., 'DeFi', 'NFT', 'Gaming', 'Infrastructure'
+  tags: text('tags').array(),  // e.g., ['smart-contracts', 'testing', 'deployment']
+  keywords: text('keywords').array(),  // For quick routing: ['deploy', 'compile', 'test']
+  documentCount: integer('document_count').default(0),
+  lastIndexedAt: timestamp('last_indexed_at', { withTimezone: true }),
+
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   nameIdx: uniqueIndex('name_idx').on(table.name),
   collectionNameIdx: uniqueIndex('collection_name_idx').on(table.collectionName),
+  domainIdx: index('domain_idx').on(table.domain),  // For faster domain queries
 }));
 
 // Tabla de documentos (opcional, para tracking)

@@ -29,7 +29,7 @@ client = OpenAI(
     base_url='https://api.asi1.ai/v1',
 
     # You can get an ASI-1 api key by creating an account at https://asi1.ai/dashboard/api-keys
-    api_key='sk_490f7508fa434f1591e9c612e0424a235dde17cede9d462ca6fc450bb00793e3',
+    api_key='',
 )
 
 agent = Agent()

@@ -11,6 +11,13 @@ interface Project {
   description: string | null;
   created_at: string;
   updated_at: string;
+  // New metadata fields for multi-agent routing
+  tech_stack?: string[] | null;
+  domain?: string | null;
+  tags?: string[] | null;
+  keywords?: string[] | null;
+  document_count?: number | null;
+  last_indexed_at?: string | null;
 }
 
 export default function ProjectsPage() {
