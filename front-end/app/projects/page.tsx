@@ -41,6 +41,7 @@ export default function ProjectsPage() {
         setError(data.error || 'Failed to load projects');
       }
     } catch (err) {
+      console.error('Error fetching projects:', err);
       setError('Connection error');
     } finally {
       setLoading(false);

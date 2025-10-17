@@ -64,7 +64,7 @@ export class QdranSimpleService {
     return Math.abs(hash);
   }
 
-  private chunkText(text: string, chunkSize: number = 500): string[] {
+  private chunkText(text: string, chunkSize: number = CHUNK_SIZE): string[] {
     const words = text.split(/\s+/);
     const chunks: string[] = [];
     

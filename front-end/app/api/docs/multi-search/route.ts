@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     if (dbError) {
       console.error('[multi-search] Database error:', dbError);
       return NextResponse.json(
-        { error: `Failed to fetch project details: ${dbError.message}` },
+        { error: `Failed to fetch project details: ${dbError}` },
         { status: 500 }
       );
     }
@@ -82,7 +82,6 @@ export async function POST(req: NextRequest) {
         { status: 404 }
       );
     }
-
     // Create a map for quick project name lookup
     const projectMap = new Map(
       projectDetails.map((p: any) => [p.id, {

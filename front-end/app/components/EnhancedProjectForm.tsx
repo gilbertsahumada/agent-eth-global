@@ -104,6 +104,7 @@ export default function EnhancedProjectForm({ onSuccess }: EnhancedProjectFormPr
         setMessage({ type: 'error', text: data.error || 'Error indexing project' });
       }
     } catch (error) {
+      console.error('Error submitting form:', error);
       setMessage({ type: 'error', text: 'Connection error' });
     } finally {
       setLoading(false);
