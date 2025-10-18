@@ -1,300 +1,412 @@
-# 🤖 Multi-Agent Documentation Assistant
+# ETH Global Hacker Assistant - Local Development Setup
 
-Multi-agent system for intelligent blockchain documentation search using ASI Alliance technologies.
+A multi-agent AI system that helps hackathon participants with blockchain development by searching indexed documentation and providing intelligent responses using ASI-1 LLM with optional MeTTa symbolic reasoning.
 
-## 📋 Architecture
+## Architecture
 
 ```
-User Query
-    ↓
-Orchestrator Agent (Puerto 8000)
-    ↓
-Project Router (8002) → Search (8003) → [MeTTa (8006) + LLM (8004) + CodeGen (8005)] → Synthesis (8007)
-    ↓
-Final Response
+User Query → Main Agent → Documentation Search → [MeTTa Reasoning] → ASI-1 LLM → Response
+                ↓                                       ↑
+           (AgentVerse)                          (Local/Mailbox)
 ```
 
-## 🤖 Agents
+## Components
 
-### Deployable on AgentVerse
+### 1. Main Agent (ETHGlobalHackerAGENT)
+- **Location**: `agents/main-agent/`
+- **Deployment**: AgentVerse (deployed)
+- **Address**: `agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt`
+- **Port**: 8000 (when running locally)
+- **Function**: Handles user queries, searches documentation, coordinates with MeTTa agent
 
-1. **Orchestrator Agent** (`agents/orchestrator/`) - Port 8000
-   - Main coordinator
-   - User entry point
-   - Handles chat protocol
+### 2. MeTTa Reasoning Agent
+- **Location**: `agents/metta-agent/`
+- **Deployment**: Local or AgentVerse with **Mailbox enabled**
+- **Address**: `agent1qdxqn3qrsxhsmmxhhjaf2ad4wprgn0jajfdzhhwkq3f5g5q6655cg9nepu4`
+- **Port**: 8001 (when running locally)
+- **Function**: Provides symbolic reasoning, dependency detection, execution order inference
 
-2. **Project Router Agent** (`agents/project-router/`) - Port 8002
-   - Intelligent routing to relevant projects
-   - Multi-factor scoring
+### 3. Frontend & API
+- **Repository**: Separate Next.js application
+- **Deployment**: Vercel
+- **URL**: https://agent-eth-global.vercel.app
+- **Endpoints**:
+  - `/api/projects` - Get indexed projects
+  - `/api/search` - Search documentation
 
-3. **Search Agent** (`agents/search/`) - Port 8003
-   - Parallel search in Qdrant
-   - Result aggregation
+## Prerequisites
 
-4. **LLM Agent** (`agents/llm/`) - Port 8004
-   - ASI-1 responses
-   - Context-aware
+- Python 3.9+
+- pip or poetry
+- ASI-1 API key from [ASI-1 Dashboard](https://asi1.ai/dashboard/api-keys)
+- Frontend deployed and accessible
 
-5. **Code Generator Agent** (`agents/code-generator/`) - Port 8005
-   - Code extraction
-   - Auto language detection
+## Local Development Setup
 
-6. **Synthesis Agent** (`agents/synthesis/`) - Port 8007
-   - Combines results
-   - Markdown formatting
-
-### Local Only
-
-7. **MeTTa Reasoning Agent** (`agents/metta-reasoning/`) - Port 8006
-   - Symbolic reasoning with hyperon
-   - Dependency/conflict detection
-   - **MUST run locally** (requires `hyperon`)
-
-## 🚀 Quick Start
-
-### Prerequisites
+### Step 1: Clone and Install Dependencies
 
 ```bash
-# Python 3.9+
-python --version
-
-# Install dependencies
 cd singularity-metta
-pip install uagents uagents_core requests openai
-
-# Only for MeTTa Agent (local)
-pip install hyperon
+pip install -r requirements.txt
 ```
 
-### Environment Variables
+**Required packages:**
+```bash
+pip install uagents uagents_core hyperon requests python-dotenv
+```
 
-Create `.env` in `singularity-metta/`:
+### Step 2: Configure Environment Variables
+
+Create a `.env` file in the root directory:
 
 ```bash
+# Copy from example
+cp .env.example .env
+```
+
+Edit `.env` with your configuration:
+
+```bash
+# ===================================
 # API Keys
-ASI1_API_KEY=your_asi1_key_here
+# ===================================
+
+# ASI-1 LLM API Key (get from https://asi1.ai/dashboard/api-keys)
+ASI1_API_KEY=your-asi1-api-key-here
+
+# ===================================
+# Next.js API Configuration
+# ===================================
+
+# Next.js API base URL (deployed frontend)
 NEXT_API_BASE_URL=https://agent-eth-global.vercel.app/api
 
-# Agent Addresses (actualizar después de deployment)
-PROJECT_ROUTER_ADDRESS=agent1q...
-SEARCH_AGENT_ADDRESS=agent1q...
-METTA_AGENT_ADDRESS=agent1q...  # Local address
-LLM_AGENT_ADDRESS=agent1q...
-CODE_GEN_ADDRESS=agent1q...
-SYNTHESIS_ADDRESS=agent1q...
+# ===================================
+# Agent Addresses
+# ===================================
+
+# Main Agent Address (deployed on AgentVerse)
+MAIN_AGENT_ADDRESS=agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt
+
+# MeTTa Reasoning Agent Address (local or AgentVerse with mailbox)
+METTA_AGENT_ADDRESS=agent1qdxqn3qrsxhsmmxhhjaf2ad4wprgn0jajfdzhhwkq3f5g5q6655cg9nepu4
+
+# ===================================
+# MeTTa Configuration
+# ===================================
+
+# Enable/disable MeTTa reasoning (set to false for faster responses)
+# MeTTa adds symbolic reasoning but increases response time by ~5-10s
+ENABLE_METTA_REASONING=true
 ```
 
-### Run Locally (Testing)
+### Step 3: Running the Agents
 
-**Option 1: Run all agents (requires 8 terminals)**
+#### Option A: Run MeTTa Agent Locally (Recommended for Development)
 
+**Terminal 1 - MeTTa Agent:**
 ```bash
-# Terminal 1 - Orchestrator
-cd agents/orchestrator
-python agent.py
-
-# Terminal 2 - Project Router
-cd agents/project-router
-python agent.py
-
-# Terminal 3 - Search
-cd agents/search
-python agent.py
-
-# Terminal 4 - LLM
-cd agents/llm
-python agent.py
-
-# Terminal 5 - Code Generator
-cd agents/code-generator
-python agent.py
-
-# Terminal 6 - MeTTa Reasoning (DEBE SER LOCAL)
-cd agents/metta-reasoning
-python agent.py
-
-# Terminal 7 - Synthesis
-cd agents/synthesis
-python agent.py
+cd agents/metta-agent
+python metta_service_agentverse.py
 ```
 
-**Opción 2: Script automático**
+**Expected output:**
+```
+🤖 MeTTaReasoningAgent started!
+📍 Agent address: agent1qdxqn3qrsxhsmmxhhjaf2ad4wprgn0jajfdzhhwkq3f5g5q6655cg9nepu4
+🌐 Listening on port 8001
+🧠 MeTTa reasoning engine initialized
+✅ Ready to process reasoning requests
+```
 
+**Terminal 2 - Main Agent (if testing locally):**
 ```bash
-# Usa el script de deployment
-python run_all_agents.py
+cd agents/main-agent
+python agent_agentverse.py
 ```
 
-## 📦 Deployment en AgentVerse
-
-### Paso 1: Deploy Agentes Individuales
-
-Para cada agente (excepto MeTTa):
-
-```bash
-cd agents/<agent-name>
-python agent.py
+**Expected output:**
+```
+🤖 ETHGlobalHackerAGENT started!
+📍 Agent address: agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt
+🌐 Listening on port 8000
+🧠 MeTTa reasoning: ENABLED
+✅ Main agent configured
 ```
 
-Cuando el agente inicie, copia el address que aparece en los logs:
-```
-📍 Agent address: agent1q2vj5c4b...
-```
+#### Option B: Use Deployed Agents (Production)
 
-### Paso 2: Actualizar Direcciones
+If both agents are deployed on AgentVerse with mailbox enabled, you don't need to run anything locally. Just interact with the main agent through AgentVerse or your client application.
 
-En `agents/orchestrator/agent.py`, actualiza las constantes:
+### Step 4: Testing the Setup
+
+Create a test script `test_agent.py`:
 
 ```python
-PROJECT_ROUTER_ADDRESS = "agent1q..."  # Address del Project Router
-SEARCH_AGENT_ADDRESS = "agent1q..."    # Address del Search Agent
-# ... etc
+from uagents import Agent, Context
+from uagents_core.contrib.protocols.chat import (
+    ChatMessage,
+    ChatAcknowledgement,
+    TextContent,
+    EndSessionContent,
+    chat_protocol_spec
+)
+from datetime import datetime, timezone
+from uuid import uuid4
+
+# Test agent
+agent = Agent(
+    name="test_user",
+    endpoint="http://localhost:8000/submit",  # For local testing
+)
+
+# Main agent address
+MAIN_AGENT_ADDRESS = "agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt"
+
+@agent.on_event("startup")
+async def send_test_query(ctx: Context):
+    query = ChatMessage(
+        timestamp=datetime.now(timezone.utc),
+        msg_id=uuid4(),
+        content=[
+            TextContent(text="How do I deploy a Solidity contract with Hardhat?")
+        ]
+    )
+    await ctx.send(MAIN_AGENT_ADDRESS, query)
+    ctx.logger.info("✅ Test query sent")
+
+@agent.on_message(ChatMessage)
+async def handle_response(ctx: Context, sender: str, msg: ChatMessage):
+    for item in msg.content:
+        if isinstance(item, TextContent):
+            ctx.logger.info(f"📥 Response: {item.text}")
+
+@agent.on_message(ChatAcknowledgement)
+async def handle_ack(ctx: Context, sender: str, msg: ChatAcknowledgement):
+    ctx.logger.info(f"✅ Message acknowledged")
+
+if __name__ == "__main__":
+    agent.run()
 ```
 
-### Paso 3: Re-deploy Orchestrator
-
+Run the test:
 ```bash
-cd agents/orchestrator
-python agent.py
+python test_agent.py
 ```
 
-### Paso 4: Publicar en AgentVerse
+## Important Notes
 
-1. Ve a https://agentverse.ai
-2. Crea nuevo agente
-3. Sube el código del agente
-4. Configura variables de entorno
-5. Deploy!
+### MeTTa Agent - Mailbox Requirement
 
-## 🧪 Testing
+⚠️ **The MeTTa agent MUST have mailbox enabled** because:
+- It needs to receive messages from the main agent asynchronously
+- Mailbox allows it to work even when not continuously running
+- Without mailbox, messages will be lost if the agent is offline
 
-### Test Individual Agent
+**To enable mailbox on AgentVerse:**
+1. Go to your agent settings on AgentVerse
+2. Enable "Mailbox" option
+3. Redeploy the agent
 
+### Running Modes
+
+| Mode | Main Agent | MeTTa Agent | Use Case |
+|------|------------|-------------|----------|
+| **Production** | AgentVerse | AgentVerse (Mailbox) | Live deployment |
+| **Development** | Local | Local | Full local testing |
+| **Hybrid** | AgentVerse | Local | Test MeTTa changes |
+
+### Performance Settings
+
+**With MeTTa Reasoning:**
+- Response time: ~7-13 seconds
+- Includes symbolic analysis, dependency detection, execution order
+
+**Without MeTTa Reasoning:**
+- Response time: ~5-8 seconds
+- Faster responses, but no symbolic reasoning
+
+To disable MeTTa reasoning:
 ```bash
-# Test Project Router
-cd agents/project-router
-python -c "from agent import agent; agent.run()"
+ENABLE_METTA_REASONING=false
 ```
 
-### Test Full Flow
+## Frontend Setup
 
-Usa el Orchestrator con un query de prueba:
+The frontend must be deployed and accessible. It provides:
+- Documentation upload interface
+- Project management
+- Vector search API endpoints
 
-```python
-# Via AgentVerse chat interface o:
-curl -X POST https://agentverse.ai/v1/agents/<orchestrator-id>/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "How to deploy a Solidity contract with Hardhat?"}'
-```
+**Current deployment:** https://agent-eth-global.vercel.app
 
-## 📁 Estructura del Proyecto
+**Required endpoints:**
+- `GET /api/projects` - Returns list of indexed projects
+- `GET /api/search?projectId=X&searchText=Y` - Searches documentation
+
+## Special Commands
+
+When interacting with the main agent, you can use:
+
+- `/clear` or `/reset` or `/new` - Clear conversation history and start fresh
+
+## Directory Structure
 
 ```
 singularity-metta/
 ├── agents/
-│   ├── orchestrator/        # Coordinador principal
-│   │   └── agent.py
-│   ├── project-router/      # Routing inteligente
-│   │   └── agent.py
-│   ├── search/              # Búsqueda paralela
-│   │   └── agent.py
-│   ├── llm/                 # ASI-1 LLM
-│   │   └── agent.py
-│   ├── code-generator/      # Extracción de código
-│   │   └── agent.py
-│   ├── metta-reasoning/     # Razonamiento simbólico (LOCAL)
-│   │   └── agent.py
-│   └── synthesis/           # Síntesis final
-│       └── agent.py
-├── shared_models.py         # Modelos compartidos
-├── run_all_agents.py        # Script de ejecución
-├── .env.example             # Template de variables
-└── README.md                # Este archivo
+│   ├── main-agent/
+│   │   ├── agent_agentverse.py          # Main agent
+│   │   └── README_AGENTVERSE.md         # AgentVerse deployment docs
+│   └── metta-agent/
+│       ├── metta_service_agentverse.py  # MeTTa reasoning agent
+│       └── README_AGENTVERSE.md         # AgentVerse deployment docs
+├── .env                                  # Environment variables (create this)
+├── .env.example                          # Environment template
+├── requirements.txt                      # Python dependencies
+└── README.md                             # This file
 ```
 
-## 🔧 Troubleshooting
-
-### Error: "Agent address not found"
-
-- Verifica que todos los agentes estén corriendo
-- Actualiza las direcciones en `orchestrator/agent.py`
-
-### Error: "MeTTa library not available"
-
-```bash
-pip install hyperon
-```
+## Troubleshooting
 
 ### Error: "ASI1_API_KEY not configured"
 
-- Crea `.env` con tu API key
-- O exporta: `export ASI1_API_KEY=your_key`
+**Solution:**
+1. Get API key from https://asi1.ai/dashboard/api-keys
+2. Add to `.env`: `ASI1_API_KEY=your-key-here`
+3. Restart agents
 
-### Timeout errors
+### Error: "MeTTa agent timeout"
 
-- Aumenta timeout en agents
-- Verifica que Next.js API esté disponible
+**Possible causes:**
+- MeTTa agent not running
+- MeTTa agent address incorrect
+- Mailbox not enabled on AgentVerse
 
-## 📊 Monitoring
+**Solution:**
+1. Verify MeTTa agent is running (check logs)
+2. Verify address in `.env` matches agent address
+3. Enable mailbox on AgentVerse if deployed
+4. Or set `ENABLE_METTA_REASONING=false` to bypass
 
-Logs de cada agente muestran:
-- ✅ Operaciones exitosas
-- ❌ Errores
-- ⏱️ Tiempos de respuesta
-- 📊 Métricas
+### Error: "No projects found"
+
+**Possible causes:**
+- Frontend not accessible
+- NEXT_API_BASE_URL incorrect
+- No documentation uploaded yet
+
+**Solution:**
+1. Verify frontend is accessible: `curl https://agent-eth-global.vercel.app/api/projects`
+2. Check NEXT_API_BASE_URL in `.env`
+3. Upload documentation through frontend interface
+
+### Response too slow
+
+**Solution:**
+- Disable MeTTa reasoning: `ENABLE_METTA_REASONING=false`
+- Check network latency to frontend API
+- Verify MeTTa agent is responsive
+
+## Agent Communication Flow
 
 ```
-🤖 OrchestratorAgent started!
-📍 Agent address: agent1q...
-👤 User query from agent1q...: 'How to deploy...'
-📍 Step 1: Routing query to projects...
-✅ Query completed in 2345.67ms total
+1. User sends query to Main Agent
+   ↓
+2. Main Agent fetches projects from Frontend API
+   ↓
+3. Main Agent searches documentation via Frontend API
+   ↓
+4. Main Agent sends chunks to MeTTa Agent (if enabled)
+   ↓
+5. MeTTa Agent performs symbolic reasoning
+   ↓
+6. Main Agent receives reasoning results
+   ↓
+7. Main Agent sends everything to ASI-1 LLM
+   ↓
+8. Main Agent returns formatted response to User
 ```
 
-## 🎯 Para la Hackathon
+## Development Tips
 
-### Demo Flow
+1. **Start with MeTTa disabled** for faster iteration:
+   ```bash
+   ENABLE_METTA_REASONING=false
+   ```
 
-1. Indexa 2-3 proyectos con metadata rica
-2. Lanza todos los agentes
-3. Haz query: "How to deploy a smart contract with Hardhat?"
-4. Muestra la respuesta que incluye:
-   - ✅ Routing inteligente
-   - ✅ Búsqueda multi-proyecto
-   - ✅ Razonamiento simbólico MeTTa
-   - ✅ Respuesta ASI-1
-   - ✅ Code examples
-   - ✅ Síntesis final
+2. **Monitor logs** to see timing breakdown:
+   - Project fetching
+   - Document search
+   - MeTTa reasoning
+   - LLM call
 
-### Puntos Clave para Jueces
+3. **Test locally first** before deploying to AgentVerse
 
-- **7 agentes especializados** trabajando en conjunto
-- **MeTTa reasoning** para detectar dependencias y conflictos
-- **ASI-1 LLM** para respuestas inteligentes
-- **Búsqueda paralela** en múltiples proyectos
-- **Escalable** a 100+ proyectos
+4. **Use conversation memory** - the agent remembers context within a session
 
-## 📚 Resources
+## API Endpoints Reference
 
-- [Architecture Document](../../ARCHITECTURE.md)
-- [Migration Guide](../../MIGRATION_GUIDE.md)
-- [uAgents Documentation](https://fetch.ai/docs)
-- [MeTTa Language](https://github.com/trueagi-io/hyperon-experimental)
-- [ASI-1 LLM](https://asi1.ai)
+### Frontend API
 
-## 🤝 Contributing
+**Get Projects:**
+```bash
+GET https://agent-eth-global.vercel.app/api/projects
+```
 
-1. Fork el repo
-2. Crea feature branch
-3. Commit cambios
-4. Push y crea PR
+Response:
+```json
+{
+  "projects": [
+    {
+      "id": "proj_123",
+      "name": "Hardhat Documentation",
+      "description": "Smart contract development framework"
+    }
+  ],
+  "count": 1
+}
+```
 
-## 📝 License
+**Search Documentation:**
+```bash
+GET https://agent-eth-global.vercel.app/api/search?projectId=proj_123&searchText=deploy
+```
 
-MIT License - ver LICENSE file
+Response:
+```json
+{
+  "results": [
+    {
+      "content": "To deploy your contract...",
+      "metadata": {
+        "project_id": "proj_123",
+        "section": "deployment"
+      },
+      "score": 0.95
+    }
+  ]
+}
+```
 
----
+## Deployed Agents
 
-**Version:** 1.0.0
-**Last Updated:** 2025-01-15
-**Author:** Gilbert Sahumada
+### Main Agent (ETHGlobalHackerAGENT)
+- **Address**: `agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt`
+- **Platform**: AgentVerse
+- **Documentation**: [agents/main-agent/README_AGENTVERSE.md](agents/main-agent/README_AGENTVERSE.md)
+
+### MeTTa Reasoning Agent
+- **Address**: `agent1qdxqn3qrsxhsmmxhhjaf2ad4wprgn0jajfdzhhwkq3f5g5q6655cg9nepu4`
+- **Platform**: AgentVerse (Mailbox enabled) or Local
+- **Documentation**: [agents/metta-agent/README_AGENTVERSE.md](agents/metta-agent/README_AGENTVERSE.md)
+
+## License
+
+Built for ETH Global Hackathon
+
+## Credits
+
+**Developed by [@gilbertsahumada](https://x.com/gilbertsahumada)**
+
+Powered by ASI Alliance (ASI-1 LLM + MeTTa Reasoning)
