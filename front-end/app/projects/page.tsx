@@ -11,6 +11,7 @@ interface Project {
   description: string | null;
   created_at: string;
   updated_at: string;
+  is_active: boolean;
   // New metadata fields for multi-agent routing
   tech_stack?: string[] | null;
   domain?: string | null;
@@ -32,7 +33,8 @@ export default function ProjectsPage() {
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/projects');
+      // Include inactive projects for admin view
+      const response = await fetch('/api/projects?includeInactive=true');
       const data = await response.json();
 
       if (response.ok) {
@@ -45,6 +47,34 @@ export default function ProjectsPage() {
       setError('Connection error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleProjectStatus = async (projectId: string, currentStatus: boolean) => {
+    try {
+      const response = await fetch('/api/projects', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: projectId,
+          isActive: !currentStatus
+        })
+      });
+
+      if (response.ok) {
+        // Update the local state
+        setProjects(projects.map(p =>
+          p.id === projectId
+            ? { ...p, is_active: !currentStatus }
+            : p
+        ));
+      } else {
+        const data = await response.json();
+        alert(`Error: ${data.error || 'Failed to update project status'}`);
+      }
+    } catch (err) {
+      console.error('Error toggling project status:', err);
+      alert('Connection error');
     }
   };
 
@@ -107,6 +137,9 @@ export default function ProjectsPage() {
                 <thead className="bg-gray-800 border-b border-gray-700">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                       Project Name
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
@@ -125,7 +158,23 @@ export default function ProjectsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-800">
                   {projects.map((project) => (
-                    <tr key={project.id} className="hover:bg-gray-800 transition-colors">
+                    <tr key={project.id} className={`hover:bg-gray-800 transition-colors ${!project.is_active ? 'opacity-60' : ''}`}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={project.is_active}
+                              onChange={() => toggleProjectStatus(project.id, project.is_active)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-600 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                          </label>
+                          <span className={`text-xs font-medium ${project.is_active ? 'text-green-400' : 'text-gray-500'}`}>
+                            {project.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <span className="text-blue-400 font-medium">{project.name}</span>
@@ -164,9 +213,17 @@ export default function ProjectsPage() {
 
             <div className="bg-gray-800 px-6 py-4 border-t border-gray-700">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-400">
-                  Total: <span className="text-white font-medium">{projects.length}</span> projects
-                </p>
+                <div className="flex items-center gap-6">
+                  <p className="text-sm text-gray-400">
+                    Total: <span className="text-white font-medium">{projects.length}</span> projects
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    Active: <span className="text-green-400 font-medium">{projects.filter(p => p.is_active).length}</span>
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    Inactive: <span className="text-gray-500 font-medium">{projects.filter(p => !p.is_active).length}</span>
+                  </p>
+                </div>
                 <button
                   onClick={fetchProjects}
                   className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
