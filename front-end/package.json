@@ -11,7 +11,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "types:generate": "node scripts/generate-types.js"
+    "types:generate": "npx supabase gen types typescript --project-id akphvgihrdzialjxvrik --schema app > lib/types/database.types.ts"
   },
   "dependencies": {
     "@qdrant/js-client-rest": "^1.15.1",
@@ -35,7 +35,7 @@
     "drizzle-kit": "^0.31.5",
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
-    "supabase": "^2.48.3",
+    "supabase": "^2.51.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   },

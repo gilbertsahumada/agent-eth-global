@@ -15,6 +15,13 @@
       "when": 1760708679292,
       "tag": "0001_rich_human_robot",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1760755872761,
+      "tag": "0002_superb_skreet",
+      "breakpoints": true
     }
   ]
 }

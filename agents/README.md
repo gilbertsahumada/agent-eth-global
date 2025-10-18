@@ -46,7 +46,7 @@ User Query → Main Agent → Documentation Search → [MeTTa Reasoning] → ASI
 ### Step 1: Clone and Install Dependencies
 
 ```bash
-cd singularity-metta
+cd agents
 pip install -r requirements.txt
 ```
 
@@ -102,12 +102,32 @@ ENABLE_METTA_REASONING=true
 
 ### Step 3: Running the Agents
 
-#### Option A: Run MeTTa Agent Locally (Recommended for Development)
+#### Option A: Quick Start with Startup Script (Recommended)
+
+The easiest way to start both agents locally:
+
+```bash
+./start-local.sh
+```
+
+This script will:
+- ✅ Check if `.env` file exists and is configured
+- ✅ Verify Python 3 is installed
+- ✅ Check/install dependencies from `requirements.txt`
+- ✅ Start both agents in separate terminal tabs/windows
+- ✅ Show helpful info about ports and addresses
+
+**Supported platforms:**
+- macOS: Opens new Terminal.app tabs
+- Linux: Uses gnome-terminal or tmux
+- Fallback: Runs in background with log files
+
+#### Option B: Manual Start (Advanced)
 
 **Terminal 1 - MeTTa Agent:**
 ```bash
 cd agents/metta-agent
-python metta_service_agentverse.py
+python3 metta-agent.py
 ```
 
 **Expected output:**
@@ -119,10 +139,10 @@ python metta_service_agentverse.py
 ✅ Ready to process reasoning requests
 ```
 
-**Terminal 2 - Main Agent (if testing locally):**
+**Terminal 2 - Main Agent:**
 ```bash
 cd agents/main-agent
-python agent_agentverse.py
+python3 agent.py
 ```
 
 **Expected output:**
@@ -134,7 +154,7 @@ python agent_agentverse.py
 ✅ Main agent configured
 ```
 
-#### Option B: Use Deployed Agents (Production)
+#### Option C: Use Deployed Agents (Production)
 
 If both agents are deployed on AgentVerse with mailbox enabled, you don't need to run anything locally. Just interact with the main agent through AgentVerse or your client application.
 
@@ -253,18 +273,18 @@ When interacting with the main agent, you can use:
 ## Directory Structure
 
 ```
-singularity-metta/
-├── agents/
-│   ├── main-agent/
-│   │   ├── agent_agentverse.py          # Main agent
-│   │   └── README_AGENTVERSE.md         # AgentVerse deployment docs
-│   └── metta-agent/
-│       ├── metta_service_agentverse.py  # MeTTa reasoning agent
-│       └── README_AGENTVERSE.md         # AgentVerse deployment docs
-├── .env                                  # Environment variables (create this)
-├── .env.example                          # Environment template
-├── requirements.txt                      # Python dependencies
-└── README.md                             # This file
+agents/
+├── main-agent/
+│   ├── agent.py                    # Main agent
+│   └── README_AGENTVERSE.md        # AgentVerse deployment docs
+├── metta-agent/
+│   ├── metta-agent.py              # MeTTa reasoning agent
+│   └── README_AGENTVERSE.md        # AgentVerse deployment docs
+├── .env                            # Environment variables (create this)
+├── .env.example                    # Environment template
+├── requirements.txt                # Python dependencies
+├── start-local.sh                  # Quick start script
+└── README.md                       # This file
 ```
 
 ## Troubleshooting

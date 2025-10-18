@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, uniqueIndex, integer, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, uniqueIndex, integer, index, boolean } from 'drizzle-orm/pg-core';
 
 // Tabla de proyectos
 export const projects = pgTable('projects', {
@@ -15,12 +15,16 @@ export const projects = pgTable('projects', {
   documentCount: integer('document_count').default(0),
   lastIndexedAt: timestamp('last_indexed_at', { withTimezone: true }),
 
+  // Status
+  isActive: boolean('is_active').default(true).notNull(),  // Enable/disable project from search
+
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
   nameIdx: uniqueIndex('name_idx').on(table.name),
   collectionNameIdx: uniqueIndex('collection_name_idx').on(table.collectionName),
   domainIdx: index('domain_idx').on(table.domain),  // For faster domain queries
+  isActiveIdx: index('is_active_idx').on(table.isActive),  // For filtering active projects
 }));
 
 // Tabla de documentos (opcional, para tracking)
