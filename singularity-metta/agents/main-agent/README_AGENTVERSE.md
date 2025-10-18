@@ -62,6 +62,7 @@ To deploy a Solidity contract with Hardhat, follow these steps:
 **Prerequisites:** Node.js, npm installed
 **Source:** hardhat-docs
 
+```
 Happy building! 🚀
         """),
         EndSessionContent()
@@ -141,10 +142,6 @@ if __name__ == "__main__":
    ```bash
    python agent.py
    ```
-
-## Special Commands
-
-- `/clear` or `/reset` or `/new` - Clear conversation history and start fresh
 
 ## Indexed Technologies
 
