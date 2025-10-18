@@ -46,7 +46,7 @@ User Query → Main Agent → Documentation Search → [MeTTa Reasoning] → ASI
 ### Step 1: Clone and Install Dependencies
 
 ```bash
-cd singularity-metta
+cd agents
 pip install -r requirements.txt
 ```
 
@@ -273,18 +273,18 @@ When interacting with the main agent, you can use:
 ## Directory Structure
 
 ```
-singularity-metta/
-├── agents/
-│   ├── main-agent/
-│   │   ├── agent_agentverse.py          # Main agent
-│   │   └── README_AGENTVERSE.md         # AgentVerse deployment docs
-│   └── metta-agent/
-│       ├── metta_service_agentverse.py  # MeTTa reasoning agent
-│       └── README_AGENTVERSE.md         # AgentVerse deployment docs
-├── .env                                  # Environment variables (create this)
-├── .env.example                          # Environment template
-├── requirements.txt                      # Python dependencies
-└── README.md                             # This file
+agents/
+├── main-agent/
+│   ├── agent.py                    # Main agent
+│   └── README_AGENTVERSE.md        # AgentVerse deployment docs
+├── metta-agent/
+│   ├── metta-agent.py              # MeTTa reasoning agent
+│   └── README_AGENTVERSE.md        # AgentVerse deployment docs
+├── .env                            # Environment variables (create this)
+├── .env.example                    # Environment template
+├── requirements.txt                # Python dependencies
+├── start-local.sh                  # Quick start script
+└── README.md                       # This file
 ```
 
 ## Troubleshooting

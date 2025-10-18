@@ -1,305 +1,210 @@
-# Singularity MeTTa Agent - RAG Documentation Assistant
+# ETH Global Hacker Assistant
 
-An AI agent that searches documentation using RAG (Retrieval-Augmented Generation) with symbolic reasoning powered by Fetch.ai uAgents and Hyperon MeTTa.
+AI-powered documentation assistant for hackathon participants. Search indexed blockchain documentation and get intelligent responses using ASI-1 LLM with optional MeTTa symbolic reasoning.
 
-## Quick Start
+**Live Demo:** [https://agent-eth-global.vercel.app](https://agent-eth-global.vercel.app)
 
-### 1. Setup Frontend
+## 🏗️ Architecture
 
+```
+Frontend (Next.js + Vercel)
+    ↓
+Documentation Upload → Vector Embeddings → Qdrant
+Project Management → Supabase (PostgreSQL)
+    ↓
+API Endpoints → AI Agents (AgentVerse)
+    ↓
+Main Agent → [MeTTa Reasoning] → ASI-1 LLM → Response
+```
+
+## 📦 Project Structure
+
+This monorepo contains two main components:
+
+### 1. Frontend (`/front-end`)
+Next.js application for documentation management and vector search API.
+
+**Tech Stack:**
+- Next.js 15.5.4 (App Router + Turbopack)
+- Supabase (PostgreSQL + Drizzle ORM)
+- Qdrant (Vector Search)
+- OpenAI (Embeddings)
+- Tailwind CSS 4
+
+**[📖 Frontend README →](./front-end/README.md)**
+
+### 2. AI Agents (`/agents`)
+Multi-agent system using Fetch.ai uAgents framework with MeTTa symbolic reasoning.
+
+**Tech Stack:**
+- Fetch.ai uAgents + uAgents Core
+- ASI-1 LLM (ASI Alliance)
+- Hyperon MeTTa (Symbolic AI)
+- Python 3.9+
+
+**[📖 Agents README →](./agents/README.md)**
+
+**Individual Agent Documentation:**
+- [Main Agent](./agents/main-agent/README_AGENTVERSE.md) - Documentation search and LLM integration
+- [MeTTa Agent](./agents/metta-agent/README_AGENTVERSE.md) - Symbolic reasoning service
+
+## 🚀 Quick Start
+
+### Option 1: Use Deployed Version (Recommended)
+
+Interact with the deployed agents on AgentVerse:
+
+**Main Agent:** `agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt`
+
+See [Agent Usage Guide](./agents/README.md#step-4-testing-the-setup) for examples.
+
+### Option 2: Run Locally
+
+**Frontend:**
 ```bash
 cd front-end
 yarn install
-```
-
-Create `.env.local`:
-```bash
-DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT-ID].supabase.co:5432/postgres
-NEXT_PUBLIC_SUPABASE_URL=https://[PROJECT-ID].supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-QDRANT_URL=https://your-cluster.aws.cloud.qdrant.io
-QDRANT_API_KEY=your_api_key
-OPENAI_API_KEY=your_openai_key
-```
-
-Initialize database:
-```bash
+cp .env.example .env.local
+# Edit .env.local with your API keys
 yarn db:push
-```
-
-Start frontend:
-```bash
 yarn dev
 # Runs on http://localhost:3000
 ```
 
-### 2. Setup Agent
-
+**Agents:**
 ```bash
-cd singularity-metta
-python -m venv venv
-source venv/bin/activate
+cd agents
 pip install -r requirements.txt
+cp .env.example .env
+# Edit .env with your ASI-1 API key
+./start-local.sh
+# MeTTa Agent: http://localhost:8001
+# Main Agent: http://localhost:8000
 ```
 
-Start agent:
-```bash
-python agent.py
-# Runs on http://localhost:8000
-```
+## 🔑 Required API Keys
 
-## How It Works
+### For Frontend:
+- **Supabase** - Database and auth ([supabase.com](https://supabase.com))
+- **Qdrant** - Vector search ([qdrant.tech](https://qdrant.tech))
+- **OpenAI** - Embeddings ([platform.openai.com](https://platform.openai.com))
 
-### Architecture
+### For Agents:
+- **ASI-1** - LLM API ([asi1.ai/dashboard/api-keys](https://asi1.ai/dashboard/api-keys))
 
-```
-User Upload (.md) → Next.js → Supabase (metadata) + Qdrant (vectors)
-                                           ↓
-User Query → Python Agent → Next.js API → Search Qdrant
-                    ↓
-              MeTTa Reasoning → Response
-```
+### AgentVerse Deployment Note:
+⚠️ If deploying agents to AgentVerse, remember to set environment variables in the AgentVerse UI:
+1. Go to your agent settings
+2. Add `ASI1_API_KEY` in Environment Variables section
+3. Add `NEXT_API_BASE_URL=https://agent-eth-global.vercel.app/api`
+4. Enable **Mailbox** for MeTTa agent
+5. Redeploy
 
-### What the Agent Does
+## 📚 Features
 
-1. **Receives query** via `QueryMessage`
-2. **Fetches projects** from `http://localhost:3000/api/projects`
-3. **Searches docs** in each project via `/api/docs?projectId=X&searchText=Y`
-4. **Ranks results** by relevance score
-5. **Applies MeTTa reasoning** - symbolic logic over search results
-6. **Returns response** with top 3 results + reasoning
+### Documentation Management
+- Upload markdown files with project metadata
+- Automatic text chunking and embedding generation
+- Vector storage for semantic search
+- Project organization by tech stack, domain, and tags
 
-### Agent Code Flow
+### AI-Powered Search
+- Semantic search across multiple projects
+- MeTTa symbolic reasoning for dependency detection
+- ASI-1 LLM for intelligent responses
+- Conversation memory per user
 
-```python
-# agent.py
-@agent.on_message(model=QueryMessage)
-async def handle_query(ctx: Context, sender: str, msg: QueryMessage):
-    # 1. Get all projects
-    projects = get_projects()
+### Special Commands
+- `/clear`, `/reset`, `/new` - Clear conversation history
 
-    # 2. Search in each project
-    for project in projects:
-        results = search_docs(project_id, query)
-        all_chunks.extend(results)
+## 🎯 Use Cases
 
-    # 3. Sort by score, take top 5
-    top_chunks = sorted(all_chunks, key=score)[:5]
+Perfect for:
+- 🏆 Hackathon participants needing quick implementation guidance
+- 📖 Developers learning new blockchain technologies
+- 🔧 Debugging and troubleshooting smart contracts
+- 💡 Exploring best practices and patterns
 
-    # 4. Generate MeTTa reasoning
-    reasoning = metta_reasoning(query, top_chunks)
+## ⚡ Performance
 
-    # 5. Send response
-    await ctx.send(sender, ResponseMessage(response=final_response))
-```
+**With MeTTa Reasoning:**
+- Response time: ~7-13 seconds
+- Includes symbolic analysis, dependency detection
 
-## Testing
+**Without MeTTa Reasoning:**
+- Response time: ~5-8 seconds
+- Faster responses, basic search only
 
-### Option 1: Full Test (Recommended)
+Set `ENABLE_METTA_REASONING=false` in `.env` for faster responses.
 
-```bash
-cd singularity-metta
-source venv/bin/activate
-python full_test.py
-```
+## 📖 Documentation
 
-**What it does:**
-- Fetches all indexed projects
-- Searches for "How do I use Chainlink VRF?"
-- Generates MeTTa reasoning
-- Shows formatted results
+- **[Frontend Setup Guide](./front-end/README.md)** - Next.js app, database, API endpoints
+- **[Agents Setup Guide](./agents/README.md)** - Python agents, local development
+- **[Main Agent - AgentVerse](./agents/main-agent/README_AGENTVERSE.md)** - Deployment docs
+- **[MeTTa Agent - AgentVerse](./agents/metta-agent/README_AGENTVERSE.md)** - Reasoning service docs
 
-**Output:**
-```
-Query: How do I use Chainlink VRF?
-Step 1: Obteniendo proyectos...
-1 proyecto(s) encontrado(s): chainlink vrf
-Step 2: Buscando...
-5 resultados encontrados
-Step 3: Generando razonamiento MeTTa...
-RESPUESTA FINAL:
-1. [chainlink vrf] (Score: 0.6032)
-   import { Aside, CodeSample }...
-```
+## 🛠️ Tech Stack Summary
 
-### Option 2: Web UI
+| Component | Technologies |
+|-----------|-------------|
+| **Frontend** | Next.js 15, TypeScript, Tailwind CSS, Vercel |
+| **Database** | Supabase (PostgreSQL), Drizzle ORM |
+| **Vector Search** | Qdrant Cloud |
+| **AI/LLM** | ASI-1 (ASI Alliance), OpenAI Embeddings |
+| **Agents** | Fetch.ai uAgents, uAgents Core |
+| **Symbolic AI** | Hyperon MeTTa |
+| **Package Manager** | Yarn (Frontend), pip (Agents) |
 
-1. Go to `http://localhost:3000`
-2. Upload a `.md` file
-3. Navigate to `/search`
-4. Enter query and view results
+## 🌐 Deployed Agents
 
-### Option 3: Agent Direct (requires uAgent setup)
+### Main Agent (ETHGlobalHackerAGENT)
+- **Address:** `agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt`
+- **Platform:** AgentVerse
+- **Port (local):** 8000
 
-```bash
-python test_query.py
-```
+### MeTTa Reasoning Agent
+- **Address:** `agent1qdxqn3qrsxhsmmxhhjaf2ad4wprgn0jajfdzhhwkq3f5g5q6655cg9nepu4`
+- **Platform:** AgentVerse (Mailbox enabled)
+- **Port (local):** 8001
 
-## Project Structure
+## 🤝 Contributing
 
-```
-.
-├── front-end/              # Next.js app (port 3000)
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── projects/  # GET (list), POST (index file)
-│   │   │   └── docs/      # GET (search)
-│   │   ├── page.tsx       # Upload form
-│   │   ├── projects/      # List projects
-│   │   └── search/        # Search UI
-│   └── lib/
-│       ├── qdrant-simple.ts   # Vector search
-│       └── supabase.ts        # Database client
-│
-└── singularity-metta/     # Python agent (port 8000)
-    ├── agent.py           # Main uAgent with MeTTa
-    ├── full_test.py       # Complete workflow test (recommended)
-    ├── simple_test.py     # HTTP test
-    └── test_query.py      # Inter-agent messaging test
-```
+When adding new features:
+1. Update schemas and types
+2. Test locally first
+3. Update relevant README
+4. Deploy to staging before production
 
-## API Endpoints
+## 📝 License
 
-### GET `/api/projects`
-Returns all indexed projects
+Built for ETH Global Hackathon
 
-**Response:**
-```json
-{
-  "projects": [{
-    "id": "uuid",
-    "name": "chainlink vrf",
-    "description": "how to use chainlink vrf"
-  }],
-  "count": 1
-}
-```
+## 👨‍💻 Credits
 
-### POST `/api/projects`
-Index a new markdown file
+**Developed by [@gilbertsahumada](https://x.com/gilbertsahumada)**
 
-**Request:**
-```
-Content-Type: multipart/form-data
-file: [.md file]
-name: "Project Name"
-description: "Description"
-```
-
-### GET `/api/docs`
-Search indexed documentation
-
-**Query params:**
-- `projectId`: UUID of project
-- `searchText`: Query string
-
-**Response:**
-```json
-{
-  "results": [{
-    "id": "chunk-id",
-    "score": 0.8532,
-    "content": "documentation text...",
-    "filePath": "/uploads/file.md"
-  }]
-}
-```
-
-## MeTTa Reasoning Example
-
-The agent converts search results into symbolic facts:
-
-```metta
-(bind $q "How do I use Chainlink VRF?")
-
-; Facts from documentation
-!(doc chunk-0 "import { Aside } from '@components'...")
-!(doc chunk-1 "Create and fund a subscription...")
-
-; Pattern matching
-(match &self
-    (doc $id $content)
-    (if (find $content "contract")
-        (print "This section involves smart contracts"))
-)
-```
-
-MeTTa finds patterns and relationships that pure vector search misses.
-
-## Troubleshooting
-
-**Port in use:**
-```bash
-lsof -ti:3000 | xargs kill -9  # Kill frontend
-lsof -ti:8000 | xargs kill -9  # Kill agent
-```
-
-**Agent not finding projects:**
-- Ensure frontend is running on port 3000
-- Check you've uploaded at least one .md file
-- Verify `http://localhost:3000/api/projects` returns data
-
-**No search results:**
-- Check project exists in database
-- Verify Qdrant collection was created
-- Test query is relevant to indexed content
-
-**MeTTa errors:**
-- Ensure hyperon is installed: `pip list | grep hyperon`
-- Check Python version: `python --version` (needs 3.12+)
-
-## Tech Stack
-
-- **Frontend**: Next.js 15, TypeScript, Tailwind CSS
-- **Agent**: Fetch.ai uAgents, Hyperon MeTTa, Python 3.12
-- **Storage**: Supabase (PostgreSQL), Qdrant (vectors)
-- **AI**: OpenAI embeddings (text-embedding-ada-002)
-
-## Example Usage
-
-**1. Index Chainlink VRF docs:**
-```bash
-# Frontend running on :3000
-# Upload vrf.md file via web UI
-# Name: "Chainlink VRF"
-# Description: "VRF documentation"
-```
-
-**2. Query via agent:**
-```bash
-cd singularity-metta
-source venv/bin/activate
-python full_test.py
-```
-
-**3. Results:**
-```
-Top 3 chunks with scores 0.60, 0.55, 0.52
-+ MeTTa symbolic reasoning
-+ Combined intelligent response
-```
-
-## Notes
-
-- Agent uses **local development seed** (commented out wallet funding)
-- Frontend uses **server-side rendering** for API routes
-- **Vector search** uses cosine similarity
-- **Chunk size**: ~500 characters with overlap
-- **Top results**: Returns 5 chunks, displays 3
-
-## Built For
-
-ETHGlobal Hackathon - Combining Fetch.ai agents with SingularityNET's symbolic AI
+Powered by ASI Alliance (ASI-1 LLM + MeTTa Reasoning)
 
 ---
 
-**Quick Commands:**
+## Quick Commands
+
 ```bash
-# Frontend
+# Start Frontend
 cd front-end && yarn dev
 
-# Agent
-cd singularity-metta && source venv/bin/activate && python agent.py
+# Start Agents (Quick)
+cd agents && ./start-local.sh
 
-# Test
-cd singularity-metta && source venv/bin/activate && python full_test.py
+# Start Agents (Manual)
+cd agents/metta-agent && python3 metta-agent.py
+cd agents/main-agent && python3 agent.py
+
+# Database Management
+cd front-end && yarn db:studio
+
+# Install Dependencies
+cd front-end && yarn install
+cd agents && pip install -r requirements.txt
 ```
