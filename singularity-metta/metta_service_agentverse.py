@@ -35,14 +35,14 @@ agent = Agent(
     #publish_agent_details=False
 )
 
-# Función para obtener proyectos disponibles
+# Function to get available projects
 def get_projects():
-    """Obtiene la lista de proyectos indexados desde el API"""
+    """Gets the list of indexed projects from the API"""
     try:
         response = requests.get(PROJECTS_URL, timeout=10)
         response.raise_for_status()
         data = response.json()
-        # El endpoint devuelve {"projects": [...], "count": N}
+        # The endpoint returns {"projects": [...], "count": N}
         if isinstance(data, dict) and "projects" in data:
             return data["projects"]
         return []
@@ -52,29 +52,29 @@ def get_projects():
 
 def text_to_metta_facts(chunks):
     """
-    Convierte chunks de documentación en hechos MeTTa
+    Converts documentation chunks into MeTTa facts
     """
     facts = []
     for idx, chunk in enumerate(chunks):
         content = chunk.get("content", "")
-        # Limpiamos texto y truncamos para evitar overflow
+        # Clean text and truncate to avoid overflow
         snippet = content.replace("\n", " ").replace('"', "'")[:400]
         facts.append(f'!(doc chunk-{idx} "{snippet}")')
     return "\n".join(facts)
 
 def metta_reasoning(query: str, chunks: List[Dict[str, Any]]) -> str:
     """
-    Genera razonamiento simbólico usando MeTTa
+    Generates symbolic reasoning using MeTTa
     """
     try:
         base_facts = text_to_metta_facts(chunks)
         reasoning_template = f"""
     (bind $q "{query}")
 
-    ; Agregamos hechos
+    ; Add facts
     {base_facts}
 
-    ; Buscamos relaciones y dependencias simbólicas
+    ; Search for symbolic relationships and dependencies
     (match &self
         (doc $id $content)
         (if (and (find $content "import") (find $content "deploy"))
@@ -88,7 +88,7 @@ def metta_reasoning(query: str, chunks: List[Dict[str, Any]]) -> str:
         result = metta.run(reasoning_template)
         return "\n".join(str(r) for r in result)
     except Exception as e:
-        return f"Error en razonamiento MeTTa: {str(e)}"
+        return f"Error in MeTTa reasoning: {str(e)}"
 
 # Initialize MeTTa
 metta = MeTTa()
@@ -109,8 +109,8 @@ def create_text_chat(text: str, end_session: bool = False) -> ChatMessage:
 
 @chat_proto.on_message(ChatMessage)
 async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
-    ctx.logger.info(f"📩 Nuevo mensaje de {sender}")
     """Handle incoming chat messages and process reasoning queries."""
+    ctx.logger.info(f"📩 New message from {sender}")
     ctx.storage.set(str(ctx.session), sender)
     await ctx.send(
         sender,
@@ -120,7 +120,7 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
     for item in msg.content:
         if isinstance(item, TextContent):
             text = item.text.strip()
-            ctx.logger.info(f"🔎 Mensaje recibido de {sender}: {text[:100]}...")
+            ctx.logger.info(f"🔎 Message received from {sender}: {text[:100]}...")
 
             # Check if this is a reasoning request
             if text.startswith("REASONING_REQUEST:"):

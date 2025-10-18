@@ -36,6 +36,9 @@ USE_METTA_REASONING = METTA_AGENT_ADDRESS and METTA_AGENT_ADDRESS != ""
 # Conversation history settings
 MAX_HISTORY_MESSAGES = 20  # Keep last 20 messages (10 user + 10 assistant)
 
+# Performance settings
+ENABLE_METTA_REASONING = os.getenv("ENABLE_METTA_REASONING", "true").lower() == "true"  # Can disable for faster responses
+
 
 client = OpenAI(
     base_url='https://api.asi1.ai/v1',
@@ -47,13 +50,13 @@ agent = Agent()
 protocol = Protocol(spec=chat_protocol_spec)
 #fund_agent_if_low(agent.wallet.address())
 
-# Función para obtener proyectos disponibles
+# Function to get available projects
 def get_projects():
     try:
         response = requests.get(PROJECTS_URL, timeout=10)
         response.raise_for_status()
         data = response.json()
-        # El endpoint devuelve {"projects": [...], "count": N}
+        # The endpoint returns {"projects": [...], "count": N}
         if isinstance(data, dict) and "projects" in data:
             return data["projects"]
         return []
@@ -89,13 +92,17 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
 @protocol.on_message(ChatMessage)
 async def handle_user_message(ctx: Context, sender: str, msg: ChatMessage):
     # Extract text from message content (FIX: msg.content is a list, not a string)
+    ctx.logger.info(f"📨 RECEIVED MESSAGE from {sender}")
+    ctx.logger.info(f"   Message ID: {msg.msg_id}")
+    ctx.logger.info(f"   Timestamp: {msg.timestamp}")
+
     query = ''
     for item in msg.content:
         if isinstance(item, TextContent):
             query += item.text
 
     query = query.strip()
-    ctx.logger.info(f"🔎 Query received from {sender}: {query}")
+    ctx.logger.info(f"🔎 Query received from {sender}: {query[:100]}...")
 
     await ctx.send(sender, ChatAcknowledgement(timestamp=datetime.now(timezone.utc), acknowledged_msg_id=msg.msg_id))
 
@@ -124,9 +131,15 @@ async def handle_user_message(ctx: Context, sender: str, msg: ChatMessage):
     # Add user message to history
     conversation_history.append({"role": "user", "content": query})
 
+    # Track processing time
+    import time
+    start_time = time.time()
+
     try:
-        # Obtener proyectos disponibles
+        # Get available projects
+        ctx.logger.info(f"⏱️ [0.00s] Fetching projects...")
         projects = get_projects()
+        ctx.logger.info(f"⏱️ [{time.time() - start_time:.2f}s] Got {len(projects)} projects")
 
         if not projects:
             no_projects_msg = ChatMessage(
@@ -155,15 +168,16 @@ Ready to upload some docs? Head to the main page and let's get building! 🚀"""
             return
 
         ctx.logger.info(f"📚 Searching across {len(projects)} project(s)")
+        ctx.logger.info(f"⏱️ [{time.time() - start_time:.2f}s] Starting document search...")
 
-        # Buscar en todos los proyectos y combinar resultados
+        # Search across all projects and combine results
         all_chunks = []
         for project in projects:
             project_id = project.get("id")
             project_name = project.get("name", "Unknown")
 
             try:
-                # Llamada al endpoint de búsqueda
+                # Call the search endpoint
                 response = requests.get(
                     DOCS_SEARCH_URL,
                     params={"projectId": project_id, "searchText": query},
@@ -219,11 +233,14 @@ What would you like to know about any of these projects?"""
             await ctx.send(sender, helpful_msg)
             return
 
+        ctx.logger.info(f"⏱️ [{time.time() - start_time:.2f}s] Search completed, got {len(all_chunks)} total chunks")
+
         # Sort by score (if exists) and take top 5
         all_chunks.sort(key=lambda x: x.get("score", 0), reverse=True)
         top_chunks = all_chunks[:5]
 
         ctx.logger.info(f"📚 Selected {len(top_chunks)} most relevant snippets")
+        ctx.logger.info(f"⏱️ [{time.time() - start_time:.2f}s] Preparing context for LLM...")
 
         # Preparar contexto para el LLM
         context_docs = "\n\n".join([
@@ -231,13 +248,11 @@ What would you like to know about any of these projects?"""
             for c in top_chunks
         ])
 
-        # Request MeTTa reasoning if agent is available
+        # Request MeTTa reasoning if agent is available and enabled
         metta_reasoning_text = None
-        ctx.logger.info(f"MeTTa reasoning enabled: {USE_METTA_REASONING}")
-        ctx.logger.info(f"MeTTa agent address: {METTA_AGENT_ADDRESS}")
-        if USE_METTA_REASONING:
+        if USE_METTA_REASONING and ENABLE_METTA_REASONING:
             try:
-                ctx.logger.info(f"🧠 Requesting MeTTa reasoning from {METTA_AGENT_ADDRESS}")
+                ctx.logger.info(f"⏱️ [{time.time() - start_time:.2f}s] Requesting MeTTa reasoning from {METTA_AGENT_ADDRESS}")
 
                 # Prepare data for MeTTa agent (serialize as JSON)
                 reasoning_data = {
@@ -261,22 +276,25 @@ What would you like to know about any of these projects?"""
 
                 # Wait for response (with timeout)
                 import asyncio
-                max_wait = 10  # 10 seconds timeout
+                max_wait = 5  # 5 seconds timeout (reduced for faster response)
                 waited = 0
                 while session_id not in metta_reasoning_cache and waited < max_wait:
-                    await asyncio.sleep(0.5)
-                    waited += 0.5
+                    await asyncio.sleep(0.3)
+                    waited += 0.3
 
                 # Check if we got a response
                 if session_id in metta_reasoning_cache:
                     metta_reasoning_text = metta_reasoning_cache.pop(session_id)
-                    ctx.logger.info(f"✅ MeTTa reasoning received and processed")
+                    ctx.logger.info(f"⏱️ [{time.time() - start_time:.2f}s] ✅ MeTTa reasoning received")
                 else:
-                    ctx.logger.warning(f"⚠️ MeTTa reasoning timeout after {max_wait}s")
+                    ctx.logger.warning(f"⏱️ [{time.time() - start_time:.2f}s] ⚠️ MeTTa reasoning timeout after {max_wait}s")
             except Exception as e:
-                ctx.logger.error(f"❌ Error calling MeTTa agent: {e}")
+                ctx.logger.error(f"⏱️ [{time.time() - start_time:.2f}s] ❌ Error calling MeTTa agent: {e}")
+        else:
+            ctx.logger.info(f"⏱️ [{time.time() - start_time:.2f}s] MeTTa reasoning skipped (disabled or not configured)")
 
         # Use ASI-1 LLM to generate intelligent response based on documentation
+        ctx.logger.info(f"⏱️ [{time.time() - start_time:.2f}s] Building prompt for ASI-1 LLM...")
         llm_response = "I'm sorry, I couldn't process your query at this time."
         try:
             # Build system prompt with MeTTa reasoning if available
@@ -326,6 +344,7 @@ Remember: You're here to help hackers ship fast and win! 🚀
             # Add current query
             messages.append({"role": "user", "content": query})
 
+            ctx.logger.info(f"⏱️ [{time.time() - start_time:.2f}s] Calling ASI-1 LLM...")
             r = client.chat.completions.create(
                 #model="asi1-mini",
                 model="asi1-extended",
@@ -333,9 +352,9 @@ Remember: You're here to help hackers ship fast and win! 🚀
                 max_tokens=2048,
             )
             llm_response = str(r.choices[0].message.content)
-            ctx.logger.info(f"✅ Response generated by ASI-1 LLM")
+            ctx.logger.info(f"⏱️ [{time.time() - start_time:.2f}s] ✅ Response generated by ASI-1 LLM")
         except Exception as e:
-            ctx.logger.error(f"❌ Error calling ASI-1: {e}")
+            ctx.logger.error(f"⏱️ [{time.time() - start_time:.2f}s] ❌ Error calling ASI-1: {e}")
             # Fallback: basic response
             llm_response = f"I found {len(top_chunks)} relevant sections in the documentation, but had issues generating a detailed response."
 
@@ -349,6 +368,10 @@ Remember: You're here to help hackers ship fast and win! 🚀
 
         # Save updated conversation history
         ctx.storage.set(history_key, conversation_history)
+
+        # Log total processing time
+        total_time = time.time() - start_time
+        ctx.logger.info(f"⏱️ [{total_time:.2f}s] Preparing response message...")
         ctx.logger.info(f"💾 Saved conversation history: {len(conversation_history)} messages")
 
         response = ChatMessage(
@@ -360,7 +383,9 @@ Remember: You're here to help hackers ship fast and win! 🚀
             ]
         )
 
+        ctx.logger.info(f"⏱️ [{time.time() - start_time:.2f}s] Sending response to {sender}...")
         await ctx.send(sender, response)
+        ctx.logger.info(f"⏱️ [{time.time() - start_time:.2f}s] ✅ COMPLETED - Total time: {time.time() - start_time:.2f}s")
 
     except Exception as e:
         error_response = ChatMessage(
@@ -411,6 +436,16 @@ async def on_startup(ctx: Context):
     ctx.logger.info(f"   Max history: {MAX_HISTORY_MESSAGES} messages per user")
     ctx.logger.info("   Commands: /clear, /reset, /new (to clear history)")
     ctx.logger.info("   Each user has their own conversation context")
+
+    ctx.logger.info("")
+    ctx.logger.info("⚡ Performance Settings:")
+    if ENABLE_METTA_REASONING and USE_METTA_REASONING:
+        ctx.logger.info("   MeTTa reasoning: ENABLED (may add 5-10s)")
+    elif USE_METTA_REASONING:
+        ctx.logger.info("   MeTTa reasoning: DISABLED (set ENABLE_METTA_REASONING=true to enable)")
+    else:
+        ctx.logger.info("   MeTTa reasoning: NOT CONFIGURED")
+    ctx.logger.info("   Expected response time: 5-15s (without MeTTa: 3-8s)")
 
 # Enabling chat functionality
 agent.include(protocol, publish_manifest=True)
