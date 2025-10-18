@@ -196,3 +196,5 @@ User Query → Documentation Search → Context Retrieval → [Optional: MeTTa R
 ---
 
 **Built for ETH Global Hackathon** | Powered by ASI Alliance (ASI-1 LLM + MeTTa Reasoning)
+
+**Developed by [@gilbertsahumada](https://x.com/gilbertsahumada)**

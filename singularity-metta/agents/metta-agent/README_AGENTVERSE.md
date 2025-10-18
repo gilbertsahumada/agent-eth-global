@@ -255,3 +255,5 @@ Typical response breakdown:
 ---
 
 **Built for ETH Global Hackathon** | Powered by ASI Alliance (MeTTa Symbolic Reasoning)
+
+**Developed by [@gilbertsahumada](https://x.com/gilbertsahumada)**
