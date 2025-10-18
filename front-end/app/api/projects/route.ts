@@ -131,12 +131,22 @@ export async function POST(req: NextRequest) {
     }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
     try {
-        const { data: projects, error } = await supabase
+        // Allow querying all projects or only active ones
+        const searchParams = req.nextUrl.searchParams;
+        const includeInactive = searchParams.get('includeInactive') === 'true';
+
+        let query = supabase
             .from('projects')
-            .select('*')
-            .order('created_at', { ascending: false });
+            .select('*');
+
+        // By default, only return active projects (for agents)
+        if (!includeInactive) {
+            query = query.eq('is_active', true);
+        }
+
+        const { data: projects, error } = await query.order('created_at', { ascending: false });
 
         if (error) {
             console.error('[API /projects GET] Error:', error);
@@ -155,6 +165,50 @@ export async function GET() {
         console.error('[API /projects GET] Error:', error);
         return NextResponse.json(
             { error: `Failed to fetch projects: ${error}` },
+            { status: 500 }
+        );
+    }
+}
+
+export async function PATCH(req: NextRequest) {
+    try {
+        const body = await req.json();
+        const { id, isActive } = body;
+
+        if (!id || typeof isActive !== 'boolean') {
+            return NextResponse.json(
+                { error: 'id and isActive (boolean) are required' },
+                { status: 400 }
+            );
+        }
+
+        const { data, error } = await supabase
+            .from('projects')
+            .update({
+                is_active: isActive,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('[API /projects PATCH] Error:', error);
+            return NextResponse.json(
+                { error: `Failed to update project: ${error.message}` },
+                { status: 500 }
+            );
+        }
+
+        return NextResponse.json({
+            message: `Project ${isActive ? 'activated' : 'deactivated'} successfully`,
+            project: data
+        }, { status: 200 });
+
+    } catch (error) {
+        console.error('[API /projects PATCH] Error:', error);
+        return NextResponse.json(
+            { error: `Failed to update project: ${error}` },
             { status: 500 }
         );
     }
