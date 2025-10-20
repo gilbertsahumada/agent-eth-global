@@ -1,7 +1,5 @@
 from datetime import datetime, timezone
 import os
-import ssl
-import certifi
 import requests
 import json
 from typing import Any, Dict, List
@@ -15,10 +13,6 @@ from uagents_core.contrib.protocols.chat import (
     TextContent,
     chat_protocol_spec,
 )
-
-# Configure SSL certificates for macOS
-os.environ['SSL_CERT_FILE'] = certifi.where()
-os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
 
 # API Configuration
 NEXT_API_BASE = os.getenv("NEXT_API_BASE_URL", "https://agent-eth-global.vercel.app/api")

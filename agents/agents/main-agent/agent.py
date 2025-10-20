@@ -37,7 +37,7 @@ USE_METTA_REASONING = METTA_AGENT_ADDRESS and METTA_AGENT_ADDRESS != ""
 MAX_HISTORY_MESSAGES = 20  # Keep last 20 messages (10 user + 10 assistant)
 
 # Performance settings
-ENABLE_METTA_REASONING = os.getenv("ENABLE_METTA_REASONING", "true").lower() == "true"  # Can disable for faster responses
+ENABLE_METTA_REASONING = os.getenv("ENABLE_METTA_REASONING", "true").lower() == "true"  # We can disable if for faster responses
 
 
 client = OpenAI(
@@ -414,38 +414,6 @@ async def on_startup(ctx: Context):
     ctx.logger.info(f"🔍 Projects URL: {PROJECTS_URL}")
     ctx.logger.info(f"📖 Docs Search URL: {DOCS_SEARCH_URL}")
     ctx.logger.info("")
-
-    # Validate ASI-1 API key
-    if not os.getenv("ASI1_API_KEY") or os.getenv("ASI1_API_KEY") == "INSERT_YOUR_API_KEY_HERE":
-        ctx.logger.warning("⚠️ ASI1_API_KEY is not configured. Agent won't be able to generate intelligent responses.")
-    else:
-        ctx.logger.info("✅ ASI-1 LLM configured correctly")
-
-    # Check MeTTa integration
-    if USE_METTA_REASONING:
-        ctx.logger.info(f"✅ MeTTa reasoning enabled")
-        ctx.logger.info(f"   MeTTa Agent address: {METTA_AGENT_ADDRESS}")
-        ctx.logger.info("   Responses will include symbolic reasoning analysis")
-    else:
-        ctx.logger.warning("⚠️ MeTTa reasoning disabled")
-        ctx.logger.info("   To enable: Set METTA_AGENT_ADDRESS in .env")
-        ctx.logger.info("   Get address from agent_v1/metta_service_agentverse.py startup logs")
-
-    ctx.logger.info("")
-    ctx.logger.info("💬 Conversation Memory:")
-    ctx.logger.info(f"   Max history: {MAX_HISTORY_MESSAGES} messages per user")
-    ctx.logger.info("   Commands: /clear, /reset, /new (to clear history)")
-    ctx.logger.info("   Each user has their own conversation context")
-
-    ctx.logger.info("")
-    ctx.logger.info("⚡ Performance Settings:")
-    if ENABLE_METTA_REASONING and USE_METTA_REASONING:
-        ctx.logger.info("   MeTTa reasoning: ENABLED (may add 5-10s)")
-    elif USE_METTA_REASONING:
-        ctx.logger.info("   MeTTa reasoning: DISABLED (set ENABLE_METTA_REASONING=true to enable)")
-    else:
-        ctx.logger.info("   MeTTa reasoning: NOT CONFIGURED")
-    ctx.logger.info("   Expected response time: 5-15s (without MeTTa: 3-8s)")
 
 # Enabling chat functionality
 agent.include(protocol, publish_manifest=True)
