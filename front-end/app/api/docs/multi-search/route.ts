@@ -1,4 +1,4 @@
-import { QdranSimpleService } from "@/lib/qdrant-simple";
+import { QdrantIntelligentService } from "@/lib/qdrant-intelligent";
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
@@ -93,8 +93,8 @@ export async function POST(req: NextRequest) {
       }])
     );
 
-    // Initialize Qdrant service
-    const qdrantService = new QdranSimpleService();
+    // Initialize Qdrant service with intelligent semantic search
+    const qdrantService = new QdrantIntelligentService();
 
     // Perform parallel searches across all projects
     const searchPromises = projectIds.map(async (projectId) => {
@@ -102,12 +102,25 @@ export async function POST(req: NextRequest) {
         const results = await qdrantService.searchDocuments(
           projectId,
           searchText,
-          topK
+          { limit: topK }
         );
 
-        // Enrich results with project information
+        // Enrich results with project information and maintain backward compatibility
         return results.map(r => ({
-          ...r,
+          content: r.content,
+          filePath: r.metadata?.filePath || '', // Extract from nested metadata
+          chunkIndex: 0, // Not used in intelligent service, set to 0 for compatibility
+          metadata: r.metadata?.frontmatter || {},
+          score: r.score,
+          // New intelligent features
+          type: r.type,
+          hierarchy: r.hierarchy,
+          language: r.language,
+          section: r.section,
+          hasCode: r.hasCode,
+          keywords: r.keywords,
+          importance: r.importance,
+          // Project enrichment
           projectId,
           projectName: projectMap.get(projectId)?.name || "Unknown",
           projectDomain: projectMap.get(projectId)?.domain || null,

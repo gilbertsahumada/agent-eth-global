@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { QdranSimpleService } from "@/lib/qdrant-simple";
+import { QdrantIntelligentService } from "@/lib/qdrant-intelligent";
 import { supabase } from "@/lib/supabase";
+import { ProjectInsert, ProjectUpdate } from "@/lib/interfaces";
 import { randomUUID } from "crypto";
 import path from "path";
 import { writeFile, mkdir } from "fs/promises";
@@ -67,21 +68,23 @@ export async function POST(req: NextRequest) {
         console.log('[API /projects POST] File saved:', filePath);
 
         // 1. Crear proyecto en Supabase con metadata
+        const projectData: ProjectInsert = {
+            id: projectId,
+            name: name,
+            collection_name: collectionName,
+            description: description || null,
+            // Metadata for multi-agent routing
+            tech_stack: techStack.length > 0 ? techStack : [],
+            domain: domain || null,
+            tags: tags.length > 0 ? tags : [],
+            keywords: keywords.length > 0 ? keywords : [],
+            document_count: 1,  // We're indexing 1 file
+            last_indexed_at: new Date().toISOString()
+        };
+
         const { data: project, error: projectError } = await supabase
             .from('projects')
-            .insert({
-                id: projectId,
-                name: name,
-                collection_name: collectionName,
-                description: description || null,
-                // Metadata for multi-agent routing
-                tech_stack: techStack.length > 0 ? techStack : [],
-                domain: domain || null,
-                tags: tags.length > 0 ? tags : [],
-                keywords: keywords.length > 0 ? keywords : [],
-                document_count: 1,  // We're indexing 1 file
-                last_indexed_at: new Date().toISOString()
-            })
+            .insert(projectData)
             .select()
             .single();
 
@@ -93,8 +96,8 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // 2. Indexar en Qdrant
-        const qdrantService = new QdranSimpleService();
+        // 2. Indexar en Qdrant con chunking semántico inteligente
+        const qdrantService = new QdrantIntelligentService();
         await qdrantService.processMarkdownFile(filePath, projectId);
 
         // 3. Registrar documento en Supabase
@@ -104,7 +107,7 @@ export async function POST(req: NextRequest) {
                 project_id: projectId,
                 file_path: filePath,
                 file_name: file.name
-            });
+            }).select().single();
 
         if (docError) {
             console.error('[API /projects POST] Warning: Failed to register document:', docError);
@@ -182,12 +185,14 @@ export async function PATCH(req: NextRequest) {
             );
         }
 
+        const updateData: ProjectUpdate = {
+            is_active: isActive,
+            updated_at: new Date().toISOString()
+        };
+
         const { data, error } = await supabase
             .from('projects')
-            .update({
-                is_active: isActive,
-                updated_at: new Date().toISOString()
-            })
+            .update(updateData)
             .eq('id', id)
             .select()
             .single();

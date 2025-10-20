@@ -12,6 +12,102 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
+  public: {
+    Tables: {
+      project_documents: {
+        Row: {
+          file_name: string
+          file_path: string
+          id: string
+          indexed_at: string
+          project_id: string
+        }
+        Insert: {
+          file_name: string
+          file_path: string
+          id?: string
+          indexed_at?: string
+          project_id: string
+        }
+        Update: {
+          file_name?: string
+          file_path?: string
+          id?: string
+          indexed_at?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_documents_project_id_projects_id_fk"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          collection_name: string
+          created_at: string
+          description: string | null
+          document_count: number | null
+          domain: string | null
+          id: string
+          is_active: boolean
+          keywords: string[] | null
+          last_indexed_at: string | null
+          name: string
+          tags: string[] | null
+          tech_stack: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          collection_name: string
+          created_at?: string
+          description?: string | null
+          document_count?: number | null
+          domain?: string | null
+          id?: string
+          is_active?: boolean
+          keywords?: string[] | null
+          last_indexed_at?: string | null
+          name: string
+          tags?: string[] | null
+          tech_stack?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          collection_name?: string
+          created_at?: string
+          description?: string | null
+          document_count?: number | null
+          domain?: string | null
+          id?: string
+          is_active?: boolean
+          keywords?: string[] | null
+          last_indexed_at?: string | null
+          name?: string
+          tags?: string[] | null
+          tech_stack?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
 }
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
@@ -131,4 +227,8 @@ export type CompositeTypes<
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
-export const Constants = {} as const
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const
