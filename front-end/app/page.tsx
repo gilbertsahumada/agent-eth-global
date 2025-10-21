@@ -1,6 +1,6 @@
 'use client';
 
-import EnhancedProjectForm from './components/EnhancedProjectForm';
+import EnhancedProjectForm from './components/AutoProjectForm';
 import { HiDocumentText } from 'react-icons/hi2';
 import Link from 'next/link';
 

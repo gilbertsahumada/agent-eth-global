@@ -2,83 +2,160 @@ import { NextRequest, NextResponse } from "next/server";
 import { QdrantIntelligentService } from "@/lib/qdrant-intelligent";
 import { supabase } from "@/lib/supabase";
 import { ProjectInsert, ProjectUpdate } from "@/lib/interfaces";
+import { extractMetadata } from "@/lib/agents/metadata-agent-client";
 import { randomUUID } from "crypto";
 import path from "path";
-import { writeFile, mkdir } from "fs/promises";
+import { writeFile, mkdir, readFile } from "fs/promises";
 import { existsSync } from "fs";
 
 export async function POST(req: NextRequest) {
     try {
         const formData = await req.formData();
         const name = formData.get('name') as string;
-        const description = formData.get('description') as string;
-        const domain = formData.get('domain') as string;
-        const techStackStr = formData.get('techStack') as string;
-        const tagsStr = formData.get('tags') as string;
-        const keywordsStr = formData.get('keywords') as string;
-        const file = formData.get('file') as File;
+
+        // Get all files (support multiple files)
+        const files: File[] = [];
+        for (const [key, value] of formData.entries()) {
+            if (key.startsWith('file') && value instanceof File) {
+                files.push(value);
+            }
+        }
 
         // Validaciones
-        if (!name || !file) {
+        if (!name) {
             return NextResponse.json(
-                { error: "name and file are required" },
+                { error: "Project name is required" },
                 { status: 400 }
             );
         }
 
-        // Parse JSON arrays (if provided)
-        let techStack: string[] = [];
-        let tags: string[] = [];
-        let keywords: string[] = [];
-
-        try {
-            if (techStackStr) techStack = JSON.parse(techStackStr);
-            if (tagsStr) tags = JSON.parse(tagsStr);
-            if (keywordsStr) keywords = JSON.parse(keywordsStr);
-        } catch (e) {
-            console.warn('[API /projects POST] Error parsing metadata arrays:', e);
-            // Continue with empty arrays if parsing fails
-        }
-
-        const isMarkdown = file.name.endsWith('.md') || file.name.endsWith('.mdx');
-        if (!isMarkdown) {
+        if (files.length === 0) {
             return NextResponse.json(
-                { error: "File must be a .md or .mdx (Markdown) file" },
+                { error: "At least one markdown file is required" },
                 { status: 400 }
             );
         }
+
+        // Validate all files are markdown
+        const invalidFiles = files.filter(f => !f.name.endsWith('.md') && !f.name.endsWith('.mdx'));
+        if (invalidFiles.length > 0) {
+            return NextResponse.json(
+                { error: `Invalid files: ${invalidFiles.map(f => f.name).join(', ')}. Only .md or .mdx files are allowed` },
+                { status: 400 }
+            );
+        }
+
+        console.log(`[API /projects POST] Processing ${files.length} file(s) for project: ${name}`);
 
         // Generar ID único para el proyecto
         const projectId = randomUUID();
         const collectionName = `project_${projectId.replace(/-/g, '_')}`;
 
         // Crear directorio temporal si no existe
-        const uploadDir = path.join(process.cwd(), 'uploads');
+        const uploadDir = path.join(process.cwd(), 'uploads', projectId);
         if (!existsSync(uploadDir)) {
             await mkdir(uploadDir, { recursive: true });
         }
 
-        // Guardar archivo temporalmente
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        const fileName = `${projectId}_${file.name}`;
-        const filePath = path.join(uploadDir, fileName);
+        // Process all files and extract metadata
+        const qdrantService = new QdrantIntelligentService();
+        const filePaths: string[] = [];
+        const allMetadata: {
+            techStack: Set<string>;
+            keywords: Set<string>;
+            domains: Map<string, number>;
+            languages: Set<string>;
+            descriptions: string[];
+        } = {
+            techStack: new Set(),
+            keywords: new Set(),
+            domains: new Map(),
+            languages: new Set(),
+            descriptions: []
+        };
 
-        await writeFile(filePath, buffer);
-        console.log('[API /projects POST] File saved:', filePath);
+        console.log('[API /projects POST] Processing files...');
 
-        // 1. Crear proyecto en Supabase con metadata
+        // Save and process all files
+        for (const file of files) {
+            const bytes = await file.arrayBuffer();
+            const buffer = Buffer.from(bytes);
+            const fileName = `${Date.now()}_${file.name}`;
+            const filePath = path.join(uploadDir, fileName);
+
+            await writeFile(filePath, buffer);
+            console.log(`[API /projects POST] Saved: ${filePath}`);
+
+            // Read markdown content
+            const markdownContent = buffer.toString('utf-8');
+
+            // Extract metadata using agent (ASI1-powered)
+            console.log(`[API /projects POST] Calling metadata-agent for ${file.name}...`);
+            const extractedMetadata = await extractMetadata(markdownContent, file.name);
+
+            // Map agent metadata to expected format
+            const metadataForQdrant = {
+                techStack: extractedMetadata.tech_stack,
+                keywords: extractedMetadata.keywords,
+                domain: extractedMetadata.domain,
+                languages: extractedMetadata.languages,
+                description: extractedMetadata.description
+            };
+
+            // Index in Qdrant with pre-extracted metadata
+            const metadata = await qdrantService.processMarkdownFile(
+                filePath,
+                projectId,
+                metadataForQdrant // Pass agent-extracted metadata
+            );
+
+            // Aggregate metadata from all files
+            metadata.techStack.forEach(tech => allMetadata.techStack.add(tech));
+            metadata.keywords.forEach(kw => allMetadata.keywords.add(kw));
+            metadata.languages.forEach(lang => allMetadata.languages.add(lang));
+            if (metadata.description) allMetadata.descriptions.push(metadata.description);
+
+            // Count domain occurrences
+            if (metadata.domain) {
+                const count = allMetadata.domains.get(metadata.domain) || 0;
+                allMetadata.domains.set(metadata.domain, count + 1);
+            }
+
+            filePaths.push(filePath);
+
+            // Register document in Supabase
+            const { error: docError } = await supabase
+                .from('project_documents')
+                .insert({
+                    project_id: projectId,
+                    file_path: filePath,
+                    file_name: file.name
+                }).select().single();
+
+            if (docError) {
+                console.warn(`[API /projects POST] Warning: Failed to register document ${file.name}:`, docError);
+            }
+        }
+
+        // Determine primary domain (most frequent)
+        let primaryDomain: string | null = null;
+        if (allMetadata.domains.size > 0) {
+            const sortedDomains = Array.from(allMetadata.domains.entries()).sort((a, b) => b[1] - a[1]);
+            primaryDomain = sortedDomains[0][0];
+        }
+
+        // Create project with aggregated auto-detected metadata
         const projectData: ProjectInsert = {
             id: projectId,
             name: name,
             collection_name: collectionName,
-            description: description || null,
-            // Metadata for multi-agent routing
-            tech_stack: techStack.length > 0 ? techStack : [],
-            domain: domain || null,
-            tags: tags.length > 0 ? tags : [],
-            keywords: keywords.length > 0 ? keywords : [],
-            document_count: 1,  // We're indexing 1 file
+            description: allMetadata.descriptions[0] || null, // Use first description
+            // Auto-detected metadata
+            tech_stack: Array.from(allMetadata.techStack),
+            domain: primaryDomain,
+            tags: Array.from(allMetadata.languages), // Use languages as tags
+            keywords: Array.from(allMetadata.keywords),
+            document_count: files.length,
             last_indexed_at: new Date().toISOString()
         };
 
@@ -96,31 +173,25 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // 2. Indexar en Qdrant con chunking semántico inteligente
-        const qdrantService = new QdrantIntelligentService();
-        await qdrantService.processMarkdownFile(filePath, projectId);
-
-        // 3. Registrar documento en Supabase
-        const { error: docError } = await supabase
-            .from('project_documents')
-            .insert({
-                project_id: projectId,
-                file_path: filePath,
-                file_name: file.name
-            }).select().single();
-
-        if (docError) {
-            console.error('[API /projects POST] Warning: Failed to register document:', docError);
-            // No fallar si el documento no se registra, el proyecto ya está indexado
-        }
+        console.log('[API /projects POST] ✅ Project created with auto-detected metadata:');
+        console.log(`  - Tech Stack: ${projectData.tech_stack?.join(', ')}`);
+        console.log(`  - Domain: ${projectData.domain}`);
+        console.log(`  - Languages: ${projectData.tags?.join(', ')}`);
+        console.log(`  - Keywords: ${projectData.keywords?.length} keywords`);
 
         return NextResponse.json({
             message: "Project indexed successfully",
+            filesProcessed: files.length,
             project: {
                 id: project.id,
                 name: project.name,
                 collection_name: project.collection_name,
                 description: project.description,
+                tech_stack: project.tech_stack,
+                domain: project.domain,
+                keywords: project.keywords,
+                tags: project.tags,
+                document_count: project.document_count,
                 created_at: project.created_at
             }
         }, { status: 200 });
