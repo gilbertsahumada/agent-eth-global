@@ -1,4 +1,4 @@
-import { QdranSimpleService } from "@/lib/qdrant-simple";
+import { QdrantIntelligentService } from "@/lib/qdrant-intelligent";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const qdrantService = new QdranSimpleService();
-    const searchResults = await qdrantService.searchDocuments(projectId, searchText, 5);
+    const qdrantService = new QdrantIntelligentService();
+    const searchResults = await qdrantService.searchDocuments(projectId, searchText, { limit: 5 });
 
     return NextResponse.json({
       results: searchResults,

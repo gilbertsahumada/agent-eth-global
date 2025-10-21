@@ -27,7 +27,7 @@ AGENT_SEED = "abandon abandon abandon abandon abandon abandon abandon abandon ab
 
 NEXT_API_BASE = os.getenv("NEXT_API_BASE_URL", "https://agent-eth-global.vercel.app/api")
 PROJECTS_URL = f"{NEXT_API_BASE}/projects"
-DOCS_SEARCH_URL = f"{NEXT_API_BASE}/docs"
+DOCS_SEARCH_URL = f"{NEXT_API_BASE}/docs/smart-search"  # Smart search with ASI1-powered query understanding
 
 # MeTTa Agent Address (get from agent_v1/metta_service_agentverse.py startup logs)
 METTA_AGENT_ADDRESS = os.getenv("METTA_AGENT_ADDRESS", "")
@@ -37,7 +37,7 @@ USE_METTA_REASONING = METTA_AGENT_ADDRESS and METTA_AGENT_ADDRESS != ""
 MAX_HISTORY_MESSAGES = 20  # Keep last 20 messages (10 user + 10 assistant)
 
 # Performance settings
-ENABLE_METTA_REASONING = os.getenv("ENABLE_METTA_REASONING", "true").lower() == "true"  # Can disable for faster responses
+ENABLE_METTA_REASONING = os.getenv("ENABLE_METTA_REASONING", "true").lower() == "true"  # We can disable if for faster responses
 
 
 client = OpenAI(
@@ -168,35 +168,40 @@ Ready to upload some docs? Head to the main page and let's get building! 🚀"""
             return
 
         ctx.logger.info(f"📚 Searching across {len(projects)} project(s)")
-        ctx.logger.info(f"⏱️ [{time.time() - start_time:.2f}s] Starting document search...")
+        ctx.logger.info(f"⏱️ [{time.time() - start_time:.2f}s] Starting smart search with ASI1 query understanding...")
 
-        # Search across all projects and combine results
-        all_chunks = []
-        for project in projects:
-            project_id = project.get("id")
-            project_name = project.get("name", "Unknown")
+        # Use smart search endpoint (POST with ASI1-powered query understanding)
+        try:
+            response = requests.post(
+                DOCS_SEARCH_URL,
+                json={
+                    "query": query,
+                    "limit": 10,  # Get top 10 most relevant chunks across all projects
+                    "includeInactive": False
+                },
+                timeout=15  # Slightly longer timeout for ASI1 processing
+            )
+            response.raise_for_status()
+            data = response.json()
 
-            try:
-                # Call the search endpoint
-                response = requests.get(
-                    DOCS_SEARCH_URL,
-                    params={"projectId": project_id, "searchText": query},
-                    timeout=10
-                )
-                ctx.logger.info(f"🔍 Response : {response}")
-                response.raise_for_status()
-                data = response.json()
-                ctx.logger.info(f"🔍 Results from '{project_name}': {data.get('count', 0)}")
+            ctx.logger.info(f"🔍 Smart Search Response:")
+            ctx.logger.info(f"   - Total results: {data.get('totalResults', 0)}")
+            ctx.logger.info(f"   - Projects searched: {data.get('projectsSearched', 0)}")
+            ctx.logger.info(f"   - Query intent: {data.get('queryIntent', {})}")
+            ctx.logger.info(f"   - Applied filters: {data.get('appliedFilters', {})}")
 
-                if data and "results" in data and data["results"]:
-                    # Add project name to each chunk
-                    for chunk in data["results"]:
-                        chunk["project_name"] = project_name
-                    all_chunks.extend(data["results"])
-                    ctx.logger.info(f"✅ {len(data['results'])} results from '{project_name}'")
-            except Exception as e:
-                ctx.logger.warning(f"⚠️ Error searching in project '{project_name}': {e}")
-                continue
+            # Extract results (already ranked by relevance and filtered by ASI1)
+            all_chunks = data.get("results", [])
+
+            if all_chunks:
+                ctx.logger.info(f"✅ {len(all_chunks)} relevant chunks found (smart filtered)")
+            else:
+                ctx.logger.info(f"⚠️ No results found for query: {query}")
+
+        except Exception as e:
+            ctx.logger.error(f"❌ Error calling smart search: {e}")
+            # Fallback to empty results
+            all_chunks = []
 
         if not all_chunks:
             # En lugar de decir "no encontré nada", ofrece ayuda con lo disponible
@@ -414,38 +419,6 @@ async def on_startup(ctx: Context):
     ctx.logger.info(f"🔍 Projects URL: {PROJECTS_URL}")
     ctx.logger.info(f"📖 Docs Search URL: {DOCS_SEARCH_URL}")
     ctx.logger.info("")
-
-    # Validate ASI-1 API key
-    if not os.getenv("ASI1_API_KEY") or os.getenv("ASI1_API_KEY") == "INSERT_YOUR_API_KEY_HERE":
-        ctx.logger.warning("⚠️ ASI1_API_KEY is not configured. Agent won't be able to generate intelligent responses.")
-    else:
-        ctx.logger.info("✅ ASI-1 LLM configured correctly")
-
-    # Check MeTTa integration
-    if USE_METTA_REASONING:
-        ctx.logger.info(f"✅ MeTTa reasoning enabled")
-        ctx.logger.info(f"   MeTTa Agent address: {METTA_AGENT_ADDRESS}")
-        ctx.logger.info("   Responses will include symbolic reasoning analysis")
-    else:
-        ctx.logger.warning("⚠️ MeTTa reasoning disabled")
-        ctx.logger.info("   To enable: Set METTA_AGENT_ADDRESS in .env")
-        ctx.logger.info("   Get address from agent_v1/metta_service_agentverse.py startup logs")
-
-    ctx.logger.info("")
-    ctx.logger.info("💬 Conversation Memory:")
-    ctx.logger.info(f"   Max history: {MAX_HISTORY_MESSAGES} messages per user")
-    ctx.logger.info("   Commands: /clear, /reset, /new (to clear history)")
-    ctx.logger.info("   Each user has their own conversation context")
-
-    ctx.logger.info("")
-    ctx.logger.info("⚡ Performance Settings:")
-    if ENABLE_METTA_REASONING and USE_METTA_REASONING:
-        ctx.logger.info("   MeTTa reasoning: ENABLED (may add 5-10s)")
-    elif USE_METTA_REASONING:
-        ctx.logger.info("   MeTTa reasoning: DISABLED (set ENABLE_METTA_REASONING=true to enable)")
-    else:
-        ctx.logger.info("   MeTTa reasoning: NOT CONFIGURED")
-    ctx.logger.info("   Expected response time: 5-15s (without MeTTa: 3-8s)")
 
 # Enabling chat functionality
 agent.include(protocol, publish_manifest=True)

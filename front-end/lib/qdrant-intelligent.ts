@@ -15,6 +15,7 @@ import { QdrantClient } from "@qdrant/js-client-rest";
 import fs from 'fs/promises';
 import matter from 'gray-matter';
 import OpenAI from 'openai';
+import { MetadataExtractor } from './metadata-extractor';
 
 const VECTOR_SIZE = 1536; // OpenAI text-embedding-3-small
 const MAX_CHUNK_TOKENS = 400; // ~300 words (more precise than word count)
@@ -353,9 +354,30 @@ export class QdrantIntelligentService {
   }
 
   /**
-   * Main intelligent processing pipeline
+   * Main intelligent processing pipeline with automatic metadata extraction
+   * Returns extracted metadata for database storage
+   *
+   * @param filePath - Path to markdown file
+   * @param projectId - Project UUID
+   * @param preExtractedMetadata - Optional pre-extracted metadata from agent (preferred)
    */
-  async processMarkdownFile(filePath: string, projectId: string) {
+  async processMarkdownFile(
+    filePath: string,
+    projectId: string,
+    preExtractedMetadata?: {
+      techStack: string[];
+      keywords: string[];
+      domain: string | null;
+      languages: string[];
+      description: string;
+    }
+  ): Promise<{
+    techStack: string[];
+    keywords: string[];
+    domain: string | null;
+    languages: string[];
+    description: string;
+  }> {
     const collectionName = await this.initializeProjectCollection(projectId);
 
     // Read file
@@ -367,6 +389,23 @@ export class QdrantIntelligentService {
     const { data: frontmatter, content: markdownContent } = matter(content);
 
     console.log(`[INTELLIGENT] Processing: ${filePath}`);
+
+    // Use pre-extracted metadata if available (from agent), otherwise extract locally
+    let finalMetadata;
+    if (preExtractedMetadata) {
+      console.log(`[INTELLIGENT] Using pre-extracted metadata from agent`);
+      finalMetadata = preExtractedMetadata;
+    } else {
+      console.log(`[INTELLIGENT] Extracting metadata locally (fallback)`);
+      const extractedMetadata = MetadataExtractor.extract(markdownContent, frontmatter);
+      finalMetadata = MetadataExtractor.mergeFrontmatter(extractedMetadata, frontmatter);
+    }
+
+    console.log(`[INTELLIGENT] Metadata:`);
+    console.log(`  - Tech Stack: ${finalMetadata.techStack.join(', ')}`);
+    console.log(`  - Domain: ${finalMetadata.domain || 'Unknown'}`);
+    console.log(`  - Languages: ${finalMetadata.languages.join(', ')}`);
+    console.log(`  - Keywords: ${finalMetadata.keywords.length} keywords`);
 
     // 1. Parse document structure
     const sections = this.parseMarkdownStructure(markdownContent);
@@ -422,6 +461,9 @@ export class QdrantIntelligentService {
     });
 
     console.log(`[INTELLIGENT] ✅ Indexed ${points.length} semantic chunks`);
+
+    // Return extracted metadata
+    return finalMetadata;
   }
 
   /**
