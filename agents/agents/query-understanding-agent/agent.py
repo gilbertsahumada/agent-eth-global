@@ -33,10 +33,6 @@ agent = Agent(
     #endpoint=['http://localhost:8001/submit']  # Updated by Agentverse on deploy
 )
 
-# ============================================================================
-# Pydantic Models for Request/Response
-# ============================================================================
-
 class ProjectContext(Model):
     """Context about available projects"""
     id: str = Field(description="Project UUID")
@@ -85,10 +81,6 @@ class QueryIntent(Model):
         description="What aspect to prioritize: code/concepts/procedures/api",
         default="concepts"
     )
-
-# ============================================================================
-# Prompt Template for ASI1
-# ============================================================================
 
 QUERY_UNDERSTANDING_PROMPT = """You are a query intent analyzer for technical documentation search.
 
