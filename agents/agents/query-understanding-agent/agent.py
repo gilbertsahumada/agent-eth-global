@@ -191,6 +191,7 @@ def analyze_query(query: str, available_projects: list[dict]) -> dict:
         )
 
         # Call ASI1 API (asi1-extended for better analysis)
+        print(f"🔍 Calling ASI1 API (asi1-extended) for query understanding...")
         response = client.chat.completions.create(
             model="asi1-extended",
             messages=[
@@ -199,8 +200,7 @@ def analyze_query(query: str, available_projects: list[dict]) -> dict:
                     "content": prompt
                 }
             ],
-            max_tokens=800,
-            temperature=0.1  # Lower temperature for analytical responses
+            max_tokens=2000  # Sufficient for query analysis
         )
 
         # Parse JSON response

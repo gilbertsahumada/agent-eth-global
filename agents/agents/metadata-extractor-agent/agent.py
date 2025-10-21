@@ -113,9 +113,15 @@ Rules:
 # Analysis Function
 # ============================================================================
 
+def estimate_tokens(text: str) -> int:
+    """Estimate token count (rough: 1 token ≈ 4 chars)"""
+    return len(text) // 4
+
 def analyze_markdown(markdown_content: str, file_name: str) -> dict:
     """
     Analyzes markdown content using ASI1 API
+
+    Handles large files by chunking if necessary.
 
     Args:
         markdown_content: The markdown text to analyze
@@ -125,99 +131,40 @@ def analyze_markdown(markdown_content: str, file_name: str) -> dict:
         dict: Extracted metadata
     """
     try:
-        # Truncate if too long (asi1-extended has larger context)
-        # Limit to ~8000 tokens input (24000 chars) to leave room for response
-        max_chars = 24000
-        if len(markdown_content) > max_chars:
-            print(f"⚠️  WARNING: Content truncated from {len(markdown_content)} to {max_chars} chars")
-            markdown_content = markdown_content[:max_chars] + "\n\n[... content truncated ...]"
+        # ASI1 extended limits: ~64k tokens total (input + output)
+        # Reserve 10k for output, 2k for prompt = 52k for content (~200k chars)
+        MAX_INPUT_TOKENS = 52000
+        MAX_INPUT_CHARS = MAX_INPUT_TOKENS * 4  # ~208,000 chars
 
-        # Debug logging
-        print(f"🔍 DEBUG: Calling ASI1 API")
-        print(f"   - Model: asi1-extended")
-        print(f"   - Content length: {len(markdown_content)} chars")
-        print(f"   - First 200 chars: {markdown_content[:200]}")
+        content_tokens = estimate_tokens(markdown_content)
+        prompt_tokens = estimate_tokens(METADATA_EXTRACTION_PROMPT)
 
-        # TEST 1: Try with MINIMAL prompt first
-        print(f"\n🧪 TEST: Trying minimal prompt first...")
-        test_response = client.chat.completions.create(
-            model="asi1-extended",
-            messages=[
-                {
-                    "role": "user",
-                    #"content": "Say 'Hello World' and nothing else."
-                    "content": f"{METADATA_EXTRACTION_PROMPT}\n\nFile: {file_name}\n\nMarkdown Content:\n{markdown_content}"
-                }
-            ],
-            #temperature=0.1,
-            max_tokens=64000
-        )
-        test_content = test_response.choices[0].message.content
-        print(f"✅ TEST Result: '{test_content}' (length: {len(test_content) if test_content else 0})")
+        print(f"📊 Token estimation:")
+        print(f"   - Content: ~{content_tokens:,} tokens ({len(markdown_content):,} chars)")
+        print(f"   - Prompt: ~{prompt_tokens:,} tokens")
+        print(f"   - Total input: ~{content_tokens + prompt_tokens:,} tokens")
+        print(f"   - Limit: {MAX_INPUT_TOKENS:,} tokens")
 
-        if not test_content:
-            print(f"❌ Even simple test failed! ASI1 API issue or config problem.")
-            raise ValueError("ASI1 API not responding to simple prompts")
+        # Truncate if too long
+        if len(markdown_content) > MAX_INPUT_CHARS:
+            print(f"⚠️  WARNING: Content too large, truncating from {len(markdown_content):,} to {MAX_INPUT_CHARS:,} chars")
+            markdown_content = markdown_content[:MAX_INPUT_CHARS] + "\n\n[... content truncated due to size ...]"
 
-        print(f"✅ ASI1 works! Now trying with actual prompt...\n")
-
-        # Call ASI1 API (asi1-extended for larger context)
+        # Call ASI1 API
+        print(f"🔍 Calling ASI1 API (asi1-extended)...")
         response = client.chat.completions.create(
             model="asi1-extended",
             messages=[
                 {
                     "role": "user",
                     "content": f"{METADATA_EXTRACTION_PROMPT}\n\nFile: {file_name}\n\nMarkdown Content:\n{markdown_content}"
-                    #"content": "How are you doing?"
                 }
             ],
-            #temperature=0.1,  # Lower temperature for analytical extraction
-            max_tokens=64000
+            max_tokens=10000  # Reserve for output
         )
-
-        # DEEP DEBUG: Ver TODO el objeto de respuesta
-        print(f"\n{'='*60}")
-        print(f"🔍 DEEP DEBUG: Full ASI1 Response Object")
-        print(f"{'='*60}")
-        print(f"Response type: {type(response)}")
-        print(f"Response object: {response}")
-        print(f"\nDir(response): {dir(response)}")
-
-        # Check if response has choices
-        if hasattr(response, 'choices'):
-            print(f"\n✅ Has choices: {len(response.choices)} choice(s)")
-            if len(response.choices) > 0:
-                choice = response.choices[0]
-                print(f"Choice 0 type: {type(choice)}")
-                print(f"Choice 0 object: {choice}")
-                print(f"Dir(choice): {dir(choice)}")
-
-                if hasattr(choice, 'message'):
-                    print(f"\n✅ Has message")
-                    msg = choice.message
-                    print(f"Message type: {type(msg)}")
-                    print(f"Message object: {msg}")
-                    print(f"Dir(message): {dir(msg)}")
-
-                    if hasattr(msg, 'content'):
-                        print(f"\n✅ Has content: '{msg.content}'")
-                    else:
-                        print(f"\n❌ NO content attribute")
-                else:
-                    print(f"\n❌ NO message attribute")
-        else:
-            print(f"\n❌ NO choices attribute")
-
-        print(f"{'='*60}\n")
 
         # Parse JSON response
         raw_content = response.choices[0].message.content
-
-        # Debug logging
-        print(f"🔍 DEBUG: ASI1 Response Content:")
-        print(f"   - Raw content type: {type(raw_content)}")
-        print(f"   - Raw content length: {len(raw_content) if raw_content else 0}")
-        print(f"   - Raw content (first 500 chars): {raw_content[:500] if raw_content else 'EMPTY'}")
 
         if not raw_content:
             raise ValueError("ASI1 returned empty response")
@@ -229,9 +176,6 @@ def analyze_markdown(markdown_content: str, file_name: str) -> dict:
             content = content.split("```")[1]
             if content.startswith("json"):
                 content = content[4:]
-
-        print(f"🔍 DEBUG: After cleanup:")
-        print(f"   - Content (first 500 chars): {content[:500]}")
 
         metadata = json.loads(content)
 
