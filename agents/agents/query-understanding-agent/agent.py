@@ -30,7 +30,7 @@ AGENT_NAME = "QueryUnderstandingAgent"
 agent = Agent(
     name=AGENT_NAME,
     port=8001,
-    endpoint=['http://localhost:8001/submit']  # Updated by Agentverse on deploy
+    #endpoint=['http://localhost:8001/submit']  # Updated by Agentverse on deploy
 )
 
 # ============================================================================
@@ -190,17 +190,17 @@ def analyze_query(query: str, available_projects: list[dict]) -> dict:
             query=query
         )
 
-        # Call ASI1 API
+        # Call ASI1 API (asi1-extended for better analysis)
         response = client.chat.completions.create(
-            model="asi1-fast-agentic",  # Fast model for query understanding
+            model="asi1-extended",
             messages=[
                 {
-                    "role": "system",
+                    "role": "user",
                     "content": prompt
                 }
             ],
-            max_tokens=500,
-            temperature=0.2,  # Low temperature for consistent analysis
+            max_tokens=800,
+            temperature=0.1  # Lower temperature for analytical responses
         )
 
         # Parse JSON response
@@ -304,7 +304,7 @@ async def on_startup(ctx: Context):
     ctx.logger.info(f"🤖 {AGENT_NAME} started!")
     ctx.logger.info(f"📍 Agent address: {agent.address}")
     ctx.logger.info(f"🌐 REST endpoint: POST /understand")
-    ctx.logger.info(f"🧠 Using ASI1 model: asi1-fast-agentic")
+    ctx.logger.info(f"🧠 Using ASI1 model: asi1-extended")
     ctx.logger.info(f"🔍 Ready to analyze search queries!")
 
 if __name__ == "__main__":

@@ -90,9 +90,12 @@ export async function extractMetadata(
     };
 
   } catch (error) {
-    console.error('[MetadataAgent] ❌ Error:', error);
+    console.error('[MetadataAgent] ❌ Error calling agent:', error);
+    console.error('[MetadataAgent] Agent URL:', METADATA_AGENT_URL);
+    console.error('[MetadataAgent] Make sure the agent is running on port 8000');
 
-    // Return empty metadata on error
+    // Return empty metadata on error (fallback)
+    console.warn('[MetadataAgent] ⚠️ Returning empty metadata as fallback');
     return {
       tech_stack: [],
       domain: 'Other',

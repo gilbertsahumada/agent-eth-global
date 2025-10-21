@@ -30,12 +30,8 @@ AGENT_NAME = "MetadataExtractorAgent"
 agent = Agent(
     name=AGENT_NAME,
     port=8000,
-    endpoint=['http://localhost:8000/submit']
+    #endpoint=['http://localhost:8000/submit']
 )
-
-# ============================================================================
-# Pydantic Models for Request/Response
-# ============================================================================
 
 class MarkdownAnalysisRequest(Model):
     """Request model for markdown analysis"""
@@ -85,61 +81,32 @@ class ExtractedMetadata(Model):
 # Prompt Template for ASI1
 # ============================================================================
 
-METADATA_EXTRACTION_PROMPT = """You are a technical documentation analyzer. Analyze the markdown content and extract metadata.
+METADATA_EXTRACTION_PROMPT = """Extract metadata from the markdown documentation as JSON.
 
-**Your task:**
-Extract the following information from the markdown documentation:
+Return ONLY valid JSON (no markdown, no explanations) with these fields:
 
-1. **tech_stack**: List ALL technologies, frameworks, libraries, and tools mentioned
-   - Examples: Hardhat, Solidity, Chainlink, Ethers.js, React, IPFS, The Graph, etc.
-   - Look in code imports, installation instructions, and text mentions
-   - Return as array of strings
-
-2. **domain**: Classify into ONE primary category
-   - Options: "DeFi", "NFT", "Gaming", "Infrastructure", "Oracles", "Smart Contracts", "Tools", "DAO", "Other"
-   - Choose based on main focus of the documentation
-
-3. **keywords**: Extract 15-20 most important technical terms
-   - Include: function names, contract types, important concepts, actions (deploy, test, verify, etc.)
-   - Focus on terms developers would search for
-
-4. **languages**: List programming languages found in code blocks
-   - Examples: solidity, javascript, typescript, python, rust, go, etc.
-   - Extract from ```language code blocks
-
-5. **description**: Write a 1-2 sentence summary of what this documentation covers
-   - Be specific and actionable
-   - Mention the main technology and what it helps accomplish
-
-6. **code_snippets**: Extract ALL code blocks with context
-   - For each code block, capture:
-     - language: the programming language
-     - code: the actual code (keep it complete, max 500 chars)
-     - context: 1-2 sentences explaining what this code does (from surrounding text)
-     - importance: "high" if it's a main example, "medium" if supporting, "low" if trivial
-
-**IMPORTANT:**
-- Return ONLY valid JSON, no markdown formatting, no explanations
-- Use exact field names as specified above
-- If you can't find something, use empty array [] or "Other" for domain
-- For code_snippets, truncate long code to 500 chars with "..." if needed
-
-**JSON Schema:**
 {
-  "tech_stack": ["..."],
-  "domain": "...",
-  "keywords": ["..."],
-  "languages": ["..."],
-  "description": "...",
+  "tech_stack": ["list of technologies, frameworks, libraries mentioned"],
+  "domain": "DeFi|NFT|Gaming|Infrastructure|Oracles|Smart Contracts|Tools|DAO|Other",
+  "keywords": ["15-20 important technical terms, function names, concepts"],
+  "languages": ["programming languages from code blocks"],
+  "description": "1-2 sentence summary",
   "code_snippets": [
     {
-      "language": "...",
-      "code": "...",
-      "context": "...",
-      "importance": "high"
+      "language": "the language",
+      "code": "code sample (max 300 chars)",
+      "context": "what it does",
+      "importance": "high|medium|low"
     }
   ]
 }
+
+Rules:
+- Extract all technologies from imports, installations, and text
+- Identify programming languages from ```language code blocks
+- Keywords: function names, concepts, actions (deploy, test, etc.)
+- Code snippets: max 5, truncate if needed
+- Empty arrays [] if nothing found
 """
 
 # ============================================================================
@@ -158,36 +125,113 @@ def analyze_markdown(markdown_content: str, file_name: str) -> dict:
         dict: Extracted metadata
     """
     try:
-        # Truncate if too long (ASI1 limit ~8000 tokens)
-        max_chars = 25000  # ~8000 tokens approx
+        # Truncate if too long (asi1-extended has larger context)
+        # Limit to ~8000 tokens input (24000 chars) to leave room for response
+        max_chars = 24000
         if len(markdown_content) > max_chars:
+            print(f"⚠️  WARNING: Content truncated from {len(markdown_content)} to {max_chars} chars")
             markdown_content = markdown_content[:max_chars] + "\n\n[... content truncated ...]"
 
-        # Call ASI1 API
-        response = client.chat.completions.create(
-            model="asi1-fast-agentic",  # Fast model for metadata extraction
+        # Debug logging
+        print(f"🔍 DEBUG: Calling ASI1 API")
+        print(f"   - Model: asi1-extended")
+        print(f"   - Content length: {len(markdown_content)} chars")
+        print(f"   - First 200 chars: {markdown_content[:200]}")
+
+        # TEST 1: Try with MINIMAL prompt first
+        print(f"\n🧪 TEST: Trying minimal prompt first...")
+        test_response = client.chat.completions.create(
+            model="asi1-extended",
             messages=[
                 {
-                    "role": "system",
-                    "content": METADATA_EXTRACTION_PROMPT
-                },
-                {
                     "role": "user",
-                    "content": f"File: {file_name}\n\nMarkdown Content:\n{markdown_content}"
+                    #"content": "Say 'Hello World' and nothing else."
+                    "content": f"{METADATA_EXTRACTION_PROMPT}\n\nFile: {file_name}\n\nMarkdown Content:\n{markdown_content}"
                 }
             ],
-            max_tokens=2000,
-            temperature=0.3,  # Low temperature for consistent extraction
+            #temperature=0.1,
+            max_tokens=64000
+        )
+        test_content = test_response.choices[0].message.content
+        print(f"✅ TEST Result: '{test_content}' (length: {len(test_content) if test_content else 0})")
+
+        if not test_content:
+            print(f"❌ Even simple test failed! ASI1 API issue or config problem.")
+            raise ValueError("ASI1 API not responding to simple prompts")
+
+        print(f"✅ ASI1 works! Now trying with actual prompt...\n")
+
+        # Call ASI1 API (asi1-extended for larger context)
+        response = client.chat.completions.create(
+            model="asi1-extended",
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"{METADATA_EXTRACTION_PROMPT}\n\nFile: {file_name}\n\nMarkdown Content:\n{markdown_content}"
+                    #"content": "How are you doing?"
+                }
+            ],
+            #temperature=0.1,  # Lower temperature for analytical extraction
+            max_tokens=64000
         )
 
+        # DEEP DEBUG: Ver TODO el objeto de respuesta
+        print(f"\n{'='*60}")
+        print(f"🔍 DEEP DEBUG: Full ASI1 Response Object")
+        print(f"{'='*60}")
+        print(f"Response type: {type(response)}")
+        print(f"Response object: {response}")
+        print(f"\nDir(response): {dir(response)}")
+
+        # Check if response has choices
+        if hasattr(response, 'choices'):
+            print(f"\n✅ Has choices: {len(response.choices)} choice(s)")
+            if len(response.choices) > 0:
+                choice = response.choices[0]
+                print(f"Choice 0 type: {type(choice)}")
+                print(f"Choice 0 object: {choice}")
+                print(f"Dir(choice): {dir(choice)}")
+
+                if hasattr(choice, 'message'):
+                    print(f"\n✅ Has message")
+                    msg = choice.message
+                    print(f"Message type: {type(msg)}")
+                    print(f"Message object: {msg}")
+                    print(f"Dir(message): {dir(msg)}")
+
+                    if hasattr(msg, 'content'):
+                        print(f"\n✅ Has content: '{msg.content}'")
+                    else:
+                        print(f"\n❌ NO content attribute")
+                else:
+                    print(f"\n❌ NO message attribute")
+        else:
+            print(f"\n❌ NO choices attribute")
+
+        print(f"{'='*60}\n")
+
         # Parse JSON response
-        content = response.choices[0].message.content.strip()
+        raw_content = response.choices[0].message.content
+
+        # Debug logging
+        print(f"🔍 DEBUG: ASI1 Response Content:")
+        print(f"   - Raw content type: {type(raw_content)}")
+        print(f"   - Raw content length: {len(raw_content) if raw_content else 0}")
+        print(f"   - Raw content (first 500 chars): {raw_content[:500] if raw_content else 'EMPTY'}")
+
+        if not raw_content:
+            raise ValueError("ASI1 returned empty response")
+
+        content = raw_content.strip()
 
         # Remove markdown code blocks if present
         if content.startswith("```"):
             content = content.split("```")[1]
             if content.startswith("json"):
                 content = content[4:]
+
+        print(f"🔍 DEBUG: After cleanup:")
+        print(f"   - Content (first 500 chars): {content[:500]}")
 
         metadata = json.loads(content)
 
@@ -271,7 +315,7 @@ async def on_startup(ctx: Context):
     ctx.logger.info(f"🤖 {AGENT_NAME} started!")
     ctx.logger.info(f"📍 Agent address: {agent.address}")
     ctx.logger.info(f"🌐 REST endpoint: POST /analyze")
-    ctx.logger.info(f"🧠 Using ASI1 model: asi1-fast-agentic")
+    ctx.logger.info(f"🧠 Using ASI1 model: asi1-extended")
     ctx.logger.info(f"📝 Ready to analyze markdown documentation!")
 
 if __name__ == "__main__":

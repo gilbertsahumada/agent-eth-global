@@ -29,24 +29,6 @@ export default function Home() {
           </p>
 
           <EnhancedProjectForm />
-
-          <div className="mt-8 pt-8 border-t border-gray-800">
-            <h2 className="text-sm font-semibold text-gray-300 mb-3">💡 Tips:</h2>
-            <div className="bg-gray-800 border border-gray-700 p-4 rounded-md text-sm space-y-2">
-              <p className="text-gray-400">
-                <span className="text-blue-400">•</span> Add tech stack (e.g., Solidity, Hardhat) to enable smart routing
-              </p>
-              <p className="text-gray-400">
-                <span className="text-blue-400">•</span> Select domain for better project categorization
-              </p>
-              <p className="text-gray-400">
-                <span className="text-blue-400">•</span> Keywords help agents find relevant documentation faster
-              </p>
-              <p className="text-gray-400">
-                <span className="text-blue-400">•</span> Supports both <code className="px-1 py-0.5 bg-gray-700 rounded">.md</code> and <code className="px-1 py-0.5 bg-gray-700 rounded">.mdx</code> files
-              </p>
-            </div>
-          </div>
         </div>
       </div>
     </div>
