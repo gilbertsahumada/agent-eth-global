@@ -38,14 +38,6 @@ interface Sponsor {
   documentCount: number | null;
 }
 
-interface FlowData {
-  nodes: Node[];
-  edges: Edge[];
-  hackathonsCount: number;
-  sponsorsCount: number;
-  connectionsCount: number;
-}
-
 export default function HackathonFlowVisualization() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -338,6 +330,58 @@ export default function HackathonFlowVisualization() {
                 <p><span className="font-semibold">Available:</span> {availableSponsors.length}</p>
               </div>
             </div>
+
+            {/* Connected Sponsors List */}
+            {edges.length > 0 && (
+              <div className="mb-4">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Connected Sponsors</h3>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {nodes
+                    .filter(node => node.type === 'sponsor')
+                    .map((sponsorNode) => {
+                      const sponsor = allSponsors.find(s => s.id === sponsorNode.id);
+                      const isIndexed = sponsor?.documentCount && sponsor.documentCount > 0;
+
+                      return (
+                        <div
+                          key={sponsorNode.id}
+                          className="flex items-center justify-between p-2 bg-white border border-gray-200 rounded-lg text-xs"
+                        >
+                          <div className="flex-1">
+                            <div className="font-semibold text-gray-900">{sponsorNode.data.label}</div>
+                            <div className={`text-xs mt-0.5 ${isIndexed ? 'text-green-600' : 'text-red-600'}`}>
+                              {isIndexed ? `${sponsor.documentCount} docs indexed` : 'Pending indexing'}
+                            </div>
+                          </div>
+                          <button
+                            onClick={async () => {
+                              if (confirm(`Remove ${sponsorNode.data.label} from this hackathon?`)) {
+                                try {
+                                  const response = await fetch(
+                                    `/api/hackathons/${selectedHackathon}/sponsors?sponsorId=${sponsorNode.id}`,
+                                    { method: 'DELETE' }
+                                  );
+                                  if (response.ok) {
+                                    setRefreshTrigger(prev => prev + 1);
+                                  }
+                                } catch (error) {
+                                  console.error('Error removing sponsor:', error);
+                                }
+                              }
+                            }}
+                            className="ml-2 p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="Remove sponsor"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
 
             {/* Add Sponsor Button */}
             {!showAddSponsor && availableSponsors.length > 0 && (
