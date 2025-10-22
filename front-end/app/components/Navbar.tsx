@@ -2,48 +2,45 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { HiDocumentText, HiMagnifyingGlass, HiCpuChip, HiAcademicCap } from 'react-icons/hi2';
+import { HiCpuChip } from 'react-icons/hi2';
+
+const links = [
+  { href: '/', label: 'Sponsor Tools' },
+  { href: '/search', label: 'Search' },
+  { href: '/hackathons', label: 'Hackathons' },
+];
 
 export default function Navbar() {
   const pathname = usePathname();
 
-  const links = [
-    { href: '/', label: 'Sponsor Tools', icon: HiDocumentText },
-    { href: '/search', label: 'Search', icon: HiMagnifyingGlass },
-    { href: '/hackathons', label: 'Hackathons', icon: HiAcademicCap },
-  ];
-
   return (
-    <nav className="bg-white border-b border-gray-200 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-2">
-              <HiCpuChip className="text-2xl text-gray-900" />
-              <span className="text-gray-900 font-bold text-xl">ETH Global RAG</span>
-            </Link>
-          </div>
+    <nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
+        <Link href="/" className="flex items-center gap-2 text-slate-900 transition hover:text-slate-700">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white">
+            <HiCpuChip className="text-lg" />
+          </span>
+          <span className="text-sm font-semibold tracking-tight">ETH Global RAG</span>
+        </Link>
 
-          <div className="flex space-x-4">
-            {links.map((link) => {
-              const isActive = pathname === link.href;
-              const Icon = link.icon;
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
-                    isActive
-                      ? 'bg-gray-900 text-white'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
-                >
-                  <Icon className="text-lg" />
-                  {link.label}
-                </Link>
-              );
-            })}
-          </div>
+        <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-white/70 p-1">
+          {links.map(({ href, label }) => {
+            const isActive = pathname === href;
+
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  isActive
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`}
+              >
+                {label}
+              </Link>
+            );
+          })}
         </div>
       </div>
     </nav>
