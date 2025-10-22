@@ -2,48 +2,51 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { HiDocumentText, HiFolderOpen, HiMagnifyingGlass, HiCpuChip } from 'react-icons/hi2';
+import { HiCpuChip } from 'react-icons/hi2';
+
+const links = [
+  { href: '/', label: 'Sponsor Tools' },
+  { href: '/search', label: 'Search' },
+  { href: '/hackathons', label: 'Hackathons' },
+];
 
 export default function Navbar() {
   const pathname = usePathname();
 
-  const links = [
-    { href: '/', label: 'Index Docs', icon: HiDocumentText },
-    { href: '/projects', label: 'Projects', icon: HiFolderOpen },
-    { href: '/search', label: 'Search', icon: HiMagnifyingGlass },
-  ];
-
   return (
-    <nav className="bg-gray-900 border-b border-gray-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-2">
-              <HiCpuChip className="text-2xl text-blue-500" />
-              <span className="text-white font-bold text-xl">Agent RAG</span>
-            </Link>
-          </div>
+    <nav className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
+        <Link href="/" className="flex items-center gap-2 text-slate-900 transition hover:text-slate-700">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white">
+            <HiCpuChip className="text-lg" />
+          </span>
+          <span className="text-sm font-semibold tracking-tight">ETH Global RAG</span>
+        </Link>
 
-          <div className="flex space-x-4">
-            {links.map((link) => {
-              const isActive = pathname === link.href;
-              const Icon = link.icon;
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
-                    isActive
-                      ? 'bg-gray-800 text-white'
-                      : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+        <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-white/70 p-1 shadow-sm">
+          {links.map(({ href, label }) => {
+            const isActive = pathname === href;
+
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`relative overflow-hidden rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-300 ease-out ${
+                  isActive
+                    ? 'text-white'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none absolute inset-0 scale-95 rounded-full bg-slate-900 transition-all duration-300 ease-out ${
+                    isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
                   }`}
-                >
-                  <Icon className="text-lg" />
-                  {link.label}
-                </Link>
-              );
-            })}
-          </div>
+                  aria-hidden
+                ></span>
+                <span className="relative z-10">{label}</span>
+              </Link>
+            );
+          })}
         </div>
       </div>
     </nav>
