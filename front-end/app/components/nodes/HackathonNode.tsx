@@ -19,8 +19,8 @@ function HackathonNode({ data }: NodeProps<HackathonNodeData>) {
   };
 
   return (
-    <div className="group relative min-w-[220px] rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur transition-colors">
-      <div className="pointer-events-none absolute inset-0 z-0 rounded-2xl bg-gradient-to-br from-indigo-100/80 via-transparent to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" aria-hidden></div>
+    <div className="group relative min-w-[200px] rounded-2xl border border-slate-200 bg-white/95 px-3 py-2.5 shadow-sm backdrop-blur transition-colors">
+      <div className="pointer-events-none absolute inset-0 z-0 rounded-2xl bg-gradient-to-br from-indigo-50/40 via-transparent to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-90" aria-hidden></div>
 
       <Handle
         type="target"
@@ -29,16 +29,16 @@ function HackathonNode({ data }: NodeProps<HackathonNodeData>) {
       />
 
       <div className="relative z-10 space-y-1">
-        <div className="text-sm font-semibold text-slate-900 tracking-tight">{data.label}</div>
+        <div className="text-[13px] font-semibold text-slate-900 tracking-tight">{data.label}</div>
 
         {data.location && (
-          <div className="text-xs text-slate-500">
+          <div className="text-[11px] text-slate-500">
             {data.location}
           </div>
         )}
 
         {(data.startDate || data.endDate) && (
-          <div className="text-[11px] text-slate-400">
+          <div className="text-[10px] text-slate-400">
             {formatDate(data.startDate)} - {formatDate(data.endDate)}
           </div>
         )}

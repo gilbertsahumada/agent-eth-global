@@ -50,15 +50,15 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
+    <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-5xl mx-auto">
-        <div className="bg-white/90 backdrop-blur rounded-2xl border border-slate-200 shadow-sm p-8">
-          <div className="mb-2">
-            <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">
+        <div className="bg-white/90 backdrop-blur rounded-2xl border border-slate-200 shadow-sm p-6">
+          <div className="mb-1.5">
+            <h1 className="text-[26px] font-semibold text-slate-900 tracking-tight">
               Sponsor Tools & Documentation
             </h1>
           </div>
-          <p className="text-slate-600 mb-8 text-sm leading-relaxed">
+          <p className="text-slate-600 mb-6 text-sm leading-relaxed">
             Choose a sponsor to review the indexed resources or trigger a fresh ingest of their docs
             and internal tooling notes.
           </p>
@@ -68,7 +68,7 @@ export default function Home() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {sponsors.map((sponsor) => {
                 const isIndexed = sponsor.documentCount && sponsor.documentCount > 0;
 
@@ -82,9 +82,9 @@ export default function Home() {
                         : 'border-rose-200 bg-rose-50/70 hover:border-rose-400 hover:shadow-lg'
                     }`}
                   >
-                    <div className="flex h-full flex-col gap-3 p-5">
+                    <div className="relative z-10 flex h-full flex-col gap-2.5 p-4">
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                        <h3 className="text-base font-semibold text-slate-900 mb-1.5">
                           {sponsor.name}
                         </h3>
                         {sponsor.description && (
@@ -93,27 +93,27 @@ export default function Home() {
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 flex-wrap text-xs font-medium">
+                      <div className="flex items-center gap-1.5 flex-wrap text-[11px] font-medium">
                         {sponsor.category && (
-                          <span className="rounded-full bg-slate-100 text-slate-700 px-2.5 py-0.5">
+                          <span className="rounded-full bg-slate-100 text-slate-700 px-2 py-0.5">
                             {sponsor.category}
                           </span>
                         )}
                         {isIndexed ? (
-                          <span className="rounded-full bg-emerald-50 text-emerald-600 px-2.5 py-0.5">
+                          <span className="rounded-full bg-emerald-50 text-emerald-600 px-2 py-0.5">
                             {sponsor.documentCount} docs indexed
                           </span>
                         ) : (
-                          <span className="rounded-full bg-rose-100 text-rose-600 px-2.5 py-0.5">
+                          <span className="rounded-full bg-rose-100 text-rose-600 px-2 py-0.5">
                             Pending ingest
                           </span>
                         )}
                       </div>
                     </div>
                     <div
-                      className={`absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100 ${
-                        isIndexed ? 'bg-gradient-to-br from-indigo-50 via-transparent to-transparent' :
-                        'bg-gradient-to-br from-rose-100 via-transparent to-transparent'
+                      className={`absolute inset-0 z-0 opacity-0 transition-opacity duration-200 pointer-events-none group-hover:opacity-80 ${
+                        isIndexed ? 'bg-gradient-to-br from-indigo-50/40 via-transparent to-transparent' :
+                        'bg-gradient-to-br from-rose-100/50 via-transparent to-transparent'
                       }`}
                       aria-hidden
                     ></div>

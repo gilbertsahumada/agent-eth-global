@@ -335,7 +335,7 @@ export default function HackathonFlowVisualization() {
             {edges.length > 0 && (
               <div className="mb-4">
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Connected Sponsors</h3>
-                <div className="max-h-64 space-y-2 overflow-y-auto">
+                <div className="max-h-64 space-y-1.5 overflow-y-auto">
                   {nodes
                     .filter(node => node.type === 'sponsor')
                     .map((sponsorNode) => {
@@ -349,11 +349,11 @@ export default function HackathonFlowVisualization() {
                       return (
                         <div
                           key={sponsorNode.id}
-                          className="flex items-center justify-between rounded-lg border border-slate-200 bg-white/80 px-3 py-1.5 text-xs"
+                          className="flex items-center justify-between rounded-lg border border-slate-200 bg-white/80 px-2.5 py-1 text-[11px]"
                         >
-                          <span className="text-sm font-medium text-slate-900">{sponsorNode.data.label}</span>
-                          <div className="flex items-center gap-2">
-                            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusClasses}`}>
+                          <span className="text-[12px] font-medium text-slate-900">{sponsorNode.data.label}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusClasses}`}>
                               {statusLabel}
                             </span>
                             <button
@@ -372,10 +372,10 @@ export default function HackathonFlowVisualization() {
                                   }
                                 }
                               }}
-                              className="flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 text-rose-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                              className="flex h-6 w-6 items-center justify-center rounded-full border border-rose-200 text-rose-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
                               title="Remove sponsor"
                             >
-                              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                               </svg>
                             </button>
