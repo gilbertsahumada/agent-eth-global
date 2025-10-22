@@ -196,8 +196,8 @@ cd agents/agents
 
 ### For Local Agents (Required):
 - **ASI-1** - LLM API for metadata-agent and query-agent ([asi1.ai/dashboard/api-keys](https://asi1.ai/dashboard/api-keys))
-  - Used by metadata-extractor-agent (port 8000)
-  - Used by query-understanding-agent (port 8001)
+  - Used by metadata-extractor-agent (port 8001)
+  - Used by query-understanding-agent (port 8002)
 
 ### AgentVerse Deployment Note:
 ⚠️ If deploying agents to AgentVerse, remember to set environment variables in the AgentVerse UI:
@@ -273,9 +273,9 @@ Set `ENABLE_METTA_REASONING=false` in `.env` for faster responses.
 - **Port (local):** 8000
 
 ### MeTTa Reasoning Agent
-- **Address:** `agent1qdxqn3qrsxhsmmxhhjaf2ad4wprgn0jajfdzhhwkq3f5g5q6655cg9nepu4`
+- **Address:** `agent1q28esldytcauznk5tex8ryx5u5xdcg97p85wcttyk437zz035pl8g0pt8sv`
 - **Platform:** AgentVerse (Mailbox enabled)
-- **Port (local):** 8001
+- **Port (local):** 8000
 
 ## 🤝 Contributing
 
