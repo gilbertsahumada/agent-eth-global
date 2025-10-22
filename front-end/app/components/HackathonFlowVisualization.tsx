@@ -270,10 +270,10 @@ export default function HackathonFlowVisualization() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-full min-h-[360px]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando visualización...</p>
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-b-2 border-slate-900"></div>
+          <p className="mt-4 text-sm text-slate-600">Cargando visualización...</p>
         </div>
       </div>
     );
@@ -281,10 +281,10 @@ export default function HackathonFlowVisualization() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center text-red-600">
-          <p className="text-xl font-bold">Error</p>
-          <p>{error}</p>
+      <div className="flex items-center justify-center h-full min-h-[360px]">
+        <div className="text-center text-rose-600">
+          <p className="text-lg font-semibold">Error</p>
+          <p className="text-sm">{error}</p>
         </div>
       </div>
     );
@@ -296,20 +296,20 @@ export default function HackathonFlowVisualization() {
   );
 
   return (
-    <div className="w-full h-screen">
+    <div className="relative h-full w-full">
       {/* Control Panel */}
-      <div className="absolute top-4 left-4 z-10 bg-white shadow-lg rounded-lg p-4 w-80">
-        <h2 className="text-lg font-bold mb-3">ETH Global Hackathons</h2>
+      <div className="absolute top-6 left-6 z-10 w-80 rounded-2xl border border-slate-200 bg-white/95 p-5 shadow-sm backdrop-blur">
+        <h2 className="text-lg font-semibold text-slate-900 tracking-tight mb-4">ETH Global Hackathons</h2>
 
         {/* Hackathon Selector */}
         <div className="mb-4">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
             Select Hackathon
           </label>
           <select
             value={selectedHackathon || ''}
             onChange={(e) => setSelectedHackathon(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
           >
             <option value="">-- Select a hackathon --</option>
             {hackathons.map((h) => (
@@ -323,59 +323,63 @@ export default function HackathonFlowVisualization() {
         {selectedHackathon && (
           <>
             {/* Stats */}
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-              <div className="text-sm space-y-1">
-                <p><span className="font-semibold">Total Sponsors:</span> {allSponsors.length}</p>
-                <p><span className="font-semibold">Connected:</span> {edges.length}</p>
-                <p><span className="font-semibold">Available:</span> {availableSponsors.length}</p>
+            <div className="mb-4 rounded-xl border border-slate-100 bg-slate-50 p-3">
+              <div className="space-y-1 text-xs text-slate-600">
+                <p><span className="font-semibold text-slate-900">Total Sponsors:</span> {allSponsors.length}</p>
+                <p><span className="font-semibold text-slate-900">Connected:</span> {edges.length}</p>
+                <p><span className="font-semibold text-slate-900">Available:</span> {availableSponsors.length}</p>
               </div>
             </div>
 
             {/* Connected Sponsors List */}
             {edges.length > 0 && (
               <div className="mb-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Connected Sponsors</h3>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Connected Sponsors</h3>
+                <div className="max-h-64 space-y-2 overflow-y-auto">
                   {nodes
                     .filter(node => node.type === 'sponsor')
                     .map((sponsorNode) => {
                       const sponsor = allSponsors.find(s => s.id === sponsorNode.id);
-                      const isIndexed = sponsor?.documentCount && sponsor.documentCount > 0;
+                      const isIndexed = !!(sponsor?.documentCount && sponsor.documentCount > 0);
+                      const statusLabel = isIndexed ? `${sponsor?.documentCount} docs indexed` : 'Pending indexing';
+                      const statusClasses = isIndexed
+                        ? 'border-emerald-100 bg-emerald-50 text-emerald-600'
+                        : 'border-rose-200 bg-rose-50 text-rose-600';
 
                       return (
                         <div
                           key={sponsorNode.id}
-                          className="flex items-center justify-between p-2 bg-white border border-gray-200 rounded-lg text-xs"
+                          className="flex items-center justify-between rounded-lg border border-slate-200 bg-white/80 px-3 py-1.5 text-xs"
                         >
-                          <div className="flex-1">
-                            <div className="font-semibold text-gray-900">{sponsorNode.data.label}</div>
-                            <div className={`text-xs mt-0.5 ${isIndexed ? 'text-green-600' : 'text-red-600'}`}>
-                              {isIndexed ? `${sponsor.documentCount} docs indexed` : 'Pending indexing'}
-                            </div>
-                          </div>
-                          <button
-                            onClick={async () => {
-                              if (confirm(`Remove ${sponsorNode.data.label} from this hackathon?`)) {
-                                try {
-                                  const response = await fetch(
-                                    `/api/hackathons/${selectedHackathon}/sponsors?sponsorId=${sponsorNode.id}`,
-                                    { method: 'DELETE' }
-                                  );
-                                  if (response.ok) {
-                                    setRefreshTrigger(prev => prev + 1);
+                          <span className="text-sm font-medium text-slate-900">{sponsorNode.data.label}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusClasses}`}>
+                              {statusLabel}
+                            </span>
+                            <button
+                              onClick={async () => {
+                                if (confirm(`Remove ${sponsorNode.data.label} from this hackathon?`)) {
+                                  try {
+                                    const response = await fetch(
+                                      `/api/hackathons/${selectedHackathon}/sponsors?sponsorId=${sponsorNode.id}`,
+                                      { method: 'DELETE' }
+                                    );
+                                    if (response.ok) {
+                                      setRefreshTrigger(prev => prev + 1);
+                                    }
+                                  } catch (error) {
+                                    console.error('Error removing sponsor:', error);
                                   }
-                                } catch (error) {
-                                  console.error('Error removing sponsor:', error);
                                 }
-                              }
-                            }}
-                            className="ml-2 p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-                            title="Remove sponsor"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
+                              }}
+                              className="flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 text-rose-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                              title="Remove sponsor"
+                            >
+                              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -387,7 +391,7 @@ export default function HackathonFlowVisualization() {
             {!showAddSponsor && availableSponsors.length > 0 && (
               <button
                 onClick={() => setShowAddSponsor(true)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700"
               >
                 <HiPlus className="text-lg" />
                 Add Sponsor to Hackathon
@@ -404,7 +408,7 @@ export default function HackathonFlowVisualization() {
                   <select
                     value={selectedSponsorToAdd}
                     onChange={(e) => setSelectedSponsorToAdd(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
                   >
                     <option value="">-- Choose sponsor --</option>
                     {availableSponsors.map((s) => (
@@ -419,7 +423,7 @@ export default function HackathonFlowVisualization() {
                   <button
                     onClick={handleAddSponsor}
                     disabled={!selectedSponsorToAdd}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Add
                   </button>
@@ -428,7 +432,7 @@ export default function HackathonFlowVisualization() {
                       setShowAddSponsor(false);
                       setSelectedSponsorToAdd('');
                     }}
-                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    className="flex-1 rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-200"
                   >
                     Cancel
                   </button>
@@ -436,15 +440,6 @@ export default function HackathonFlowVisualization() {
               </div>
             )}
           </>
-        )}
-
-        {/* Instructions */}
-        {selectedHackathon && !showAddSponsor && (
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-xs text-blue-800">
-              💡 You can also drag connections from the hackathon to sponsors, or select edges and press Delete to remove them.
-            </p>
-          </div>
         )}
       </div>
 
@@ -459,6 +454,8 @@ export default function HackathonFlowVisualization() {
         nodeTypes={nodeTypes}
         fitView
         attributionPosition="bottom-right"
+        className="h-full"
+        style={{ width: '100%', height: '100%' }}
       >
         <Controls />
         <MiniMap />

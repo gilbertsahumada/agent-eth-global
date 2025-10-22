@@ -5,10 +5,10 @@ import { eq, and } from "drizzle-orm";
 // GET sponsors for a hackathon
 export async function GET(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const hackathonId = params.id;
+        const { id: hackathonId } = await params;
 
         // Get all sponsor relationships for this hackathon
         const relationships = await db
@@ -43,10 +43,10 @@ export async function GET(
 // POST add a sponsor to a hackathon
 export async function POST(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const hackathonId = params.id;
+        const { id: hackathonId } = await params;
         const body = await req.json();
         const { sponsorId, tier, prizeAmount } = body;
 
@@ -103,10 +103,10 @@ export async function POST(
 // DELETE remove a sponsor from a hackathon
 export async function DELETE(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const hackathonId = params.id;
+        const { id: hackathonId } = await params;
         const searchParams = req.nextUrl.searchParams;
         const sponsorId = searchParams.get('sponsorId');
 

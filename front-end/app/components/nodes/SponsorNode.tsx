@@ -15,51 +15,53 @@ interface SponsorNodeData {
 }
 
 function SponsorNode({ data }: NodeProps<SponsorNodeData>) {
-  const isIndexed = data.documentCount && data.documentCount > 0;
+  const isIndexed = !!(data.documentCount && data.documentCount > 0);
+  const statusLabel = isIndexed ? `${data.documentCount} docs indexed` : 'Pending ingest';
+  const statusClasses = isIndexed
+    ? 'border-emerald-100 bg-emerald-50 text-emerald-600'
+    : 'border-rose-200 bg-rose-50 text-rose-600';
 
   return (
-    <div className={`px-4 py-2 shadow-md rounded-lg min-w-[180px] transition-colors ${
-      isIndexed
-        ? 'bg-white border-2 border-gray-300 hover:border-blue-500'
-        : 'bg-red-50 border-2 border-red-500 animate-pulse-border'
-    }`}>
-      <Handle type="target" position={Position.Left} className="w-3 h-3" />
+    <div
+      className={`group relative min-w-[210px] rounded-2xl border px-4 py-3 shadow-sm backdrop-blur transition-colors ${
+        isIndexed
+          ? 'border-slate-200 bg-white/95 hover:border-indigo-300'
+          : 'border-rose-200 bg-rose-50/80 hover:border-rose-300'
+      }`}
+    >
+      <div
+        className={`pointer-events-none absolute inset-0 z-0 rounded-2xl bg-gradient-to-br ${
+          isIndexed ? 'from-indigo-100/70 via-transparent to-transparent' : 'from-rose-100/70 via-transparent to-transparent'
+        } opacity-0 transition-opacity duration-200 group-hover:opacity-100`}
+        aria-hidden
+      ></div>
 
-      <div>
-        {/* Sponsor name */}
-        <div className="font-bold text-gray-800 text-base mb-1">{data.label}</div>
+      <Handle
+        type="target"
+        position={Position.Left}
+        className={`!z-10 !w-3 !h-3 !border !border-white ${isIndexed ? '!bg-indigo-500' : '!bg-rose-400'}`}
+      />
 
-        {/* Category and indexed status badges */}
-        <div className="flex items-center gap-2">
+      <div className="relative z-10 space-y-2">
+        <div className="text-sm font-semibold text-slate-900 tracking-tight">{data.label}</div>
+
+        <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium">
           {data.category && (
-            <div className="inline-block px-2 py-0.5 bg-blue-600 text-white text-xs rounded font-medium">
+            <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-slate-600">
               {data.category}
-            </div>
+            </span>
           )}
-          {isIndexed && (
-            <div className="inline-block px-2 py-0.5 bg-green-600 text-white text-xs rounded font-medium">
-              {data.documentCount} docs
-            </div>
-          )}
+          <span className={`rounded-full border px-3 py-1 ${statusClasses}`}>
+            {statusLabel}
+          </span>
         </div>
       </div>
 
-      <Handle type="source" position={Position.Right} className="w-3 h-3" />
-
-      <style jsx>{`
-        @keyframes pulse-border {
-          0%, 100% {
-            border-color: #ef4444;
-          }
-          50% {
-            border-color: #dc2626;
-          }
-        }
-
-        .animate-pulse-border {
-          animation: pulse-border 2s ease-in-out infinite;
-        }
-      `}</style>
+      <Handle
+        type="source"
+        position={Position.Right}
+        className={`!z-10 !w-3 !h-3 !border !border-white ${isIndexed ? '!bg-indigo-500' : '!bg-rose-400'}`}
+      />
     </div>
   );
 }
