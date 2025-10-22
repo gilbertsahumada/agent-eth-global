@@ -1,10 +1,43 @@
 'use client';
 
+import { useState } from 'react';
 import EnhancedProjectForm from './components/AutoProjectForm';
-import { HiDocumentText } from 'react-icons/hi2';
-import Link from 'next/link';
+import ProjectSponsorList from './components/ProjectSponsorList';
+import SponsorIndexModal from './components/SponsorIndexModal';
+import { HiDocumentText, HiXCircle } from 'react-icons/hi2';
 
 export default function Home() {
+  const [showProjectForm, setShowProjectForm] = useState(false);
+  const [selectedSponsor, setSelectedSponsor] = useState<any>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleNewProject = () => {
+    setShowProjectForm(true);
+  };
+
+  const handleNewSponsor = () => {
+    // For now, we just show a message. In the future, we can create a sponsor creation form
+    alert('To create a new sponsor, please use the database seed script or API');
+  };
+
+  const handleSelectProject = (_project: any) => {
+    // When clicking on existing project, show the indexing form
+    setShowProjectForm(true);
+  };
+
+  const handleSelectSponsor = (sponsor: any) => {
+    setSelectedSponsor(sponsor);
+  };
+
+  const handleProjectSuccess = () => {
+    setShowProjectForm(false);
+    setRefreshKey(prev => prev + 1); // Refresh the list
+  };
+
+  const handleSponsorSuccess = () => {
+    setSelectedSponsor(null);
+    setRefreshKey(prev => prev + 1); // Refresh the list
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
@@ -17,20 +50,48 @@ export default function Home() {
                 Index Documentation
               </h1>
             </div>
-            <Link
-              href="/projects"
-              className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              View Projects →
-            </Link>
           </div>
           <p className="text-gray-600 mb-8">
-            Upload documentation with metadata for intelligent multi-agent routing
+            Select a project or sponsor to index documentation, or create a new one
           </p>
 
-          <EnhancedProjectForm />
+          {/* Main List View */}
+          {!showProjectForm && (
+            <ProjectSponsorList
+              key={refreshKey}
+              onSelectProject={handleSelectProject}
+              onSelectSponsor={handleSelectSponsor}
+              onNewProject={handleNewProject}
+              onNewSponsor={handleNewSponsor}
+            />
+          )}
+
+          {/* Project Form Modal */}
+          {showProjectForm && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Index New Project</h2>
+                <button
+                  onClick={() => setShowProjectForm(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <HiXCircle className="text-2xl" />
+                </button>
+              </div>
+              <EnhancedProjectForm onSuccess={handleProjectSuccess} />
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Sponsor Index Modal */}
+      {selectedSponsor && (
+        <SponsorIndexModal
+          sponsor={selectedSponsor}
+          onClose={() => setSelectedSponsor(null)}
+          onSuccess={handleSponsorSuccess}
+        />
+      )}
     </div>
   );
 }

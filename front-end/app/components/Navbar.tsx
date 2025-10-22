@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { HiDocumentText, HiFolderOpen, HiMagnifyingGlass, HiCpuChip } from 'react-icons/hi2';
+import { HiDocumentText, HiFolderOpen, HiMagnifyingGlass, HiCpuChip, HiAcademicCap } from 'react-icons/hi2';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -11,6 +11,7 @@ export default function Navbar() {
     { href: '/', label: 'Index Docs', icon: HiDocumentText },
     { href: '/projects', label: 'Projects', icon: HiFolderOpen },
     { href: '/search', label: 'Search', icon: HiMagnifyingGlass },
+    { href: '/hackathons', label: 'Hackathons', icon: HiAcademicCap },
   ];
 
   return (

@@ -799,6 +799,182 @@ export class QdrantIntelligentService {
     return response.data[0].embedding;
   }
 
+  /**
+   * Initialize a generic collection (not project-specific)
+   */
+  async initializeCollection(collectionName: string) {
+    try {
+      const collections = await this.client.getCollections();
+      const existingCollections = collections.collections.map(c => c.name);
+
+      if (!existingCollections.includes(collectionName)) {
+        await this.client.createCollection(collectionName, {
+          vectors: {
+            size: VECTOR_SIZE,
+            distance: "Cosine",
+          },
+        });
+
+        // Create payload indexes for hybrid search
+        await this.client.createPayloadIndex(collectionName, {
+          field_name: 'type',
+          field_schema: 'keyword'
+        });
+
+        await this.client.createPayloadIndex(collectionName, {
+          field_name: 'hasCode',
+          field_schema: 'bool'
+        });
+
+        await this.client.createPayloadIndex(collectionName, {
+          field_name: 'codeLanguage',
+          field_schema: 'keyword'
+        });
+
+        await this.client.createPayloadIndex(collectionName, {
+          field_name: 'importance',
+          field_schema: 'keyword'
+        });
+
+        console.log(`[INTELLIGENT] Created collection with payload indexes: ${collectionName}`);
+      }
+
+      return collectionName;
+    } catch (error) {
+      throw new Error(`Failed to initialize collection: ${error}`);
+    }
+  }
+
+  /**
+   * Index content in a specific collection (generic, not project-specific)
+   * Useful for sponsors, custom collections, etc.
+   */
+  async indexInCollection(
+    collectionName: string,
+    markdownContent: string,
+    fileName: string,
+    entityId: string, // Could be sponsorId, projectId, etc.
+    preExtractedMetadata?: {
+      techStack: string[];
+      keywords: string[];
+      domain: string | null;
+      languages: string[];
+      description: string;
+    }
+  ): Promise<{
+    techStack: string[];
+    keywords: string[];
+    domain: string | null;
+    languages: string[];
+    description: string;
+  }> {
+    // Initialize collection
+    await this.initializeCollection(collectionName);
+
+    const { data: frontmatter, content: cleanContent } = matter(markdownContent);
+
+    console.log(`[INTELLIGENT] Processing: ${fileName} for collection: ${collectionName}`);
+
+    // Use pre-extracted metadata if available, otherwise extract locally
+    let finalMetadata;
+    if (preExtractedMetadata) {
+      console.log(`[INTELLIGENT] Using pre-extracted metadata from agent`);
+      finalMetadata = preExtractedMetadata;
+    } else {
+      const extractedMetadata = MetadataExtractor.extract(cleanContent, frontmatter);
+      finalMetadata = MetadataExtractor.mergeFrontmatter(extractedMetadata, frontmatter);
+    }
+
+    console.log(`[INTELLIGENT] Metadata:`);
+    console.log(`  - Tech Stack: ${finalMetadata.techStack.join(', ')}`);
+    console.log(`  - Domain: ${finalMetadata.domain || 'Unknown'}`);
+    console.log(`  - Languages: ${finalMetadata.languages.join(', ')}`);
+    console.log(`  - Keywords: ${finalMetadata.keywords.length} keywords`);
+
+    // 1. Parse document structure
+    const sections = this.parseMarkdownStructure(cleanContent);
+    console.log(`[INTELLIGENT] Found ${sections.length} sections`);
+
+    // 2. Extract code snippets
+    const codeChunks = this.extractCodeSnippets(sections);
+    console.log(`[INTELLIGENT] Extracted ${codeChunks.length} code snippets`);
+
+    // 3. Process sections into semantic chunks
+    const conceptChunks: SemanticChunk[] = [];
+    for (const section of sections) {
+      conceptChunks.push(...this.processSection(section));
+    }
+    console.log(`[INTELLIGENT] Created ${conceptChunks.length} conceptual chunks`);
+
+    // 4. Combine all chunks
+    const allChunks = [...codeChunks, ...conceptChunks];
+    console.log(`[INTELLIGENT] Total chunks: ${allChunks.length}`);
+
+    // 5. Generate embeddings and store
+    const points = await Promise.all(
+      allChunks.map(async (chunk, index) => {
+        const embedding = await this.generateEmbedding(chunk.content);
+
+        const frontmatterStr = frontmatter && Object.keys(frontmatter).length > 0
+          ? JSON.stringify(frontmatter)
+          : null;
+
+        return {
+          id: this.hashString(`${entityId}-${fileName}-${chunk.type}-${index}`),
+          vector: embedding,
+          payload: {
+            entityId, // Generic ID (could be projectId, sponsorId, etc.)
+            fileName,
+            content: chunk.content,
+            type: chunk.type,
+            hierarchy: chunk.hierarchy,
+            language: chunk.language || null,
+            section: chunk.hierarchy[0] || null,
+            subsection: chunk.hierarchy[1] || null,
+            hasCode: chunk.metadata.hasCode,
+            codeLanguage: chunk.metadata.codeLanguage || null,
+            keywords: chunk.metadata.keywords || [],
+            importance: chunk.metadata.importance || 'medium',
+            frontmatter: frontmatterStr,
+          },
+        };
+      })
+    );
+
+    console.log(`[INTELLIGENT] Upserting ${points.length} points to Qdrant...`);
+
+    // Split into batches
+    const BATCH_SIZE = 100;
+    const batches: typeof points[] = [];
+
+    for (let i = 0; i < points.length; i += BATCH_SIZE) {
+      batches.push(points.slice(i, i + BATCH_SIZE));
+    }
+
+    console.log(`[INTELLIGENT] Splitting into ${batches.length} batches`);
+
+    try {
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        console.log(`[INTELLIGENT] Upserting batch ${i + 1}/${batches.length}...`);
+
+        await this.client.upsert(collectionName, {
+          wait: true,
+          points: batch,
+        });
+
+        console.log(`[INTELLIGENT] ✅ Batch ${i + 1}/${batches.length} complete`);
+      }
+    } catch (error: any) {
+      console.error('[INTELLIGENT] ❌ Qdrant upsert error:', error.message);
+      throw error;
+    }
+
+    console.log(`[INTELLIGENT] ✅ Indexed ${points.length} semantic chunks`);
+
+    return finalMetadata;
+  }
+
   private hashString(str: string): number {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
