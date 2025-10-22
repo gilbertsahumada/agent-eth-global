@@ -68,48 +68,51 @@ export default function SponsorIndexModal({ sponsor, onClose, onSuccess }: Spons
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4 py-8">
+      <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-200 bg-white/95 shadow-2xl backdrop-blur">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            {sponsor.logo && (
-              <img src={sponsor.logo} alt={sponsor.name} className="w-10 h-10 rounded" />
-            )}
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Index Documentation</h2>
-              <p className="text-sm text-gray-600">{sponsor.name}</p>
-            </div>
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-8 py-6">
+          <div className="space-y-1.5">
+            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+              Sponsor ingest
+            </span>
+            <h2 className="text-xl font-semibold text-slate-900 tracking-tight">{sponsor.name}</h2>
+            <p className="text-sm text-slate-500">Upload Markdown docs to enrich the knowledge base.</p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
           >
-            <HiXCircle className="text-2xl" />
+            <HiXCircle className="h-5 w-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6">
-          <div className="mb-6">
-            <h3 className="font-semibold text-gray-900 mb-2">Sponsor Information</h3>
-            <div className="space-y-2 text-sm">
+        <div className="px-8 py-6">
+          <div className="mb-6 rounded-2xl border border-slate-100 bg-slate-50/70 p-5">
+            <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Sponsor snapshot</h3>
+            <div className="mt-3 grid gap-3 text-sm text-slate-600">
               {sponsor.description && (
-                <p className="text-gray-600">{sponsor.description}</p>
+                <p className="leading-relaxed text-slate-600">{sponsor.description}</p>
               )}
-              {sponsor.category && (
-                <p className="text-gray-600">
-                  <span className="font-medium">Category:</span> {sponsor.category}
-                </p>
-              )}
+              <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+                {sponsor.category && (
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">{sponsor.category}</span>
+                )}
+                {typeof sponsor.documentCount === 'number' && (
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-600">
+                    {sponsor.documentCount} docs indexed
+                  </span>
+                )}
+              </div>
               {sponsor.website && (
-                <p className="text-gray-600">
-                  <span className="font-medium">Website:</span>{' '}
+                <p>
+                  <span className="font-medium text-slate-700">Website:</span>{' '}
                   <a
                     href={sponsor.website}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
+                    className="text-indigo-600 transition hover:text-indigo-500"
                   >
                     {sponsor.website}
                   </a>
@@ -121,71 +124,67 @@ export default function SponsorIndexModal({ sponsor, onClose, onSuccess }: Spons
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* File Upload */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Documentation Files (Markdown)
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Documentation files (Markdown)
               </label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
-                <HiArrowUpTray className="mx-auto text-4xl text-gray-400 mb-2" />
-                <label className="cursor-pointer">
-                  <span className="text-sm text-gray-600">
-                    Click to upload or drag and drop
-                  </span>
-                  <input
-                    type="file"
-                    accept=".md,.mdx"
-                    multiple
-                    onChange={handleFileChange}
-                    className="hidden"
-                    disabled={uploading}
-                  />
-                </label>
-                <p className="text-xs text-gray-500 mt-1">
-                  .md or .mdx files only
-                </p>
-              </div>
+              <label className="group block cursor-pointer rounded-2xl border border-dashed border-slate-200 bg-white/70 px-6 py-8 text-center transition hover:border-indigo-300 hover:bg-indigo-50/40">
+                <HiArrowUpTray className="mx-auto h-10 w-10 text-slate-400 transition group-hover:text-indigo-500" />
+                <span className="mt-3 block text-sm font-medium text-slate-700">Click to upload or drag files here</span>
+                <span className="mt-1 block text-xs text-slate-500">Accepts .md or .mdx</span>
+                <input
+                  type="file"
+                  accept=".md,.mdx"
+                  multiple
+                  onChange={handleFileChange}
+                  className="hidden"
+                  disabled={uploading}
+                />
+              </label>
 
               {files.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  <p className="text-sm font-medium text-gray-700">
-                    Selected files ({files.length}):
+                <div className="mt-4 space-y-2 rounded-2xl border border-slate-100 bg-white/80 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Selected files ({files.length})
                   </p>
-                  {files.map((file, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-2 rounded"
-                    >
-                      <HiDocumentText className="text-gray-400" />
-                      <span>{file.name}</span>
-                      <span className="text-gray-400">
-                        ({(file.size / 1024).toFixed(1)} KB)
-                      </span>
-                    </div>
-                  ))}
+                  <div className="space-y-2">
+                    {files.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2 text-sm text-slate-600"
+                      >
+                        <div className="flex items-center gap-2">
+                          <HiDocumentText className="h-4 w-4 text-slate-400" />
+                          <span className="font-medium text-slate-700">{file.name}</span>
+                        </div>
+                        <span className="text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
             {/* Progress */}
             {uploadProgress && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800">{uploadProgress}</p>
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50/80 px-4 py-3 text-sm text-indigo-700">
+                {uploadProgress}
               </div>
             )}
 
             {/* Actions */}
-            <div className="flex gap-3 justify-end">
+            <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={uploading}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={uploading || files.length === 0}
-                className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
               >
                 {uploading ? 'Indexing...' : 'Index Documentation'}
               </button>
