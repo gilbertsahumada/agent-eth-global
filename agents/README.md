@@ -1,431 +1,364 @@
-# ETH Global Hacker Assistant - Local Development Setup
+# ETH Global Hacker Assistant - Agents Setup
 
-A multi-agent AI system that helps hackathon participants with blockchain development by searching indexed documentation and providing intelligent responses using ASI-1 LLM with optional MeTTa symbolic reasoning.
+Multi-agent AI system for hackathon documentation assistance using ASI-1 LLM and MeTTa symbolic reasoning.
 
-## Architecture
+## 📊 Agent Architecture
 
 ```
-User Query → Main Agent → Documentation Search → [MeTTa Reasoning] → ASI-1 LLM → Response
-                ↓                                       ↑
-           (AgentVerse)                          (Local/Mailbox)
+┌─────────────────────────────────────────────────────────────┐
+│                    USER INTERACTION                          │
+└─────────────────────────────────────────────────────────────┘
+              │                                │
+      ┌───────▼────────┐              ┌───────▼────────┐
+      │  Upload Docs    │              │   Chat Query   │
+      └───────┬────────┘              └───────┬────────┘
+              │                                │
+┌─────────────▼──────────────┐  ┌─────────────▼──────────────┐
+│ 📍 LOCAL AGENTS (Required)  │  │ 🌐 AGENTVERSE (Optional)    │
+├─────────────────────────────┤  ├─────────────────────────────┤
+│ metadata-extractor-agent    │  │ main-agent                  │
+│ Port: 8001                  │  │ Chat & search coordination  │
+│ Purpose: Auto metadata      │  │                             │
+│                             │  │ metta-agent                 │
+│ query-understanding-agent   │  │ Symbolic reasoning          │
+│ Port: 8002                  │  │                             │
+│ Purpose: Intent analysis    │  │                             │
+└─────────────────────────────┘  └─────────────────────────────┘
 ```
 
-## Components
+## 🎯 Agent Overview
 
-### 1. Main Agent (ETHGlobalHackerAGENT)
-- **Location**: `agents/main-agent/`
-- **Deployment**: AgentVerse (deployed)
-- **Address**: `agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt`
-- **Port**: 8000 (when running locally)
-- **Function**: Handles user queries, searches documentation, coordinates with MeTTa agent
+### Required Local Agents
 
-### 2. MeTTa Reasoning Agent
-- **Location**: `agents/metta-agent/`
-- **Deployment**: Local or AgentVerse with **Mailbox enabled**
-- **Address**: `agent1qdxqn3qrsxhsmmxhhjaf2ad4wprgn0jajfdzhhwkq3f5g5q6655cg9nepu4`
-- **Port**: 8001 (when running locally)
-- **Function**: Provides symbolic reasoning, dependency detection, execution order inference
+These agents MUST run locally because they receive direct HTTP POST requests from the Next.js frontend:
 
-### 3. Frontend & API
-- **Repository**: Separate Next.js application
-- **Deployment**: Vercel
-- **URL**: https://agent-eth-global.vercel.app
-- **Endpoints**:
-  - `/api/projects` - Get indexed projects
-  - `/api/search` - Search documentation
+#### 1. **Metadata Extractor Agent** (`metadata-extractor-agent/`)
+- **Port:** 8001
+- **Deployment:** LOCAL ONLY
+- **Purpose:** Automatically extracts tech stack, keywords, domain, and languages from uploaded markdown files using ASI-1
+- **Used By:** `/api/projects` (upload endpoint)
+- **Documentation:** [README_LOCAL.md](./agents/metadata-extractor-agent/README_LOCAL.md)
 
-## Prerequisites
+#### 2. **Query Understanding Agent** (`query-understanding-agent/`)
+- **Port:** 8002
+- **Deployment:** LOCAL ONLY
+- **Purpose:** Analyzes search queries to extract intent, technologies, and build dynamic filters using ASI-1
+- **Used By:** `/api/docs/smart-search` (search endpoint)
+- **Documentation:** [README_LOCAL.md](./agents/query-understanding-agent/README_LOCAL.md)
+
+### Optional Agentverse Agents
+
+These agents can be deployed to Agentverse for chat functionality:
+
+#### 3. **Main Agent** (`main-agent/`)
+- **Port:** 8000 (local) or Agentverse
+- **Address:** `agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt`
+- **Purpose:** Handles user chat queries, searches documentation, coordinates with MeTTa agent
+- **Documentation:** [README_AGENTVERSE.md](./agents/main-agent/README_AGENTVERSE.md)
+
+#### 4. **MeTTa Reasoning Agent** (`metta-agent/`)
+- **Port:** 8001 (local) or Agentverse (requires Mailbox)
+- **Address:** `agent1qdxqn3qrsxhsmmxhhjaf2ad4wprgn0jajfdzhhwkq3f5g5q6655cg9nepu4`
+- **Purpose:** Provides symbolic reasoning and dependency detection
+- **Documentation:** [README_AGENTVERSE.md](./agents/metta-agent/README_AGENTVERSE.md)
+
+---
+
+## 🚀 Quick Start for Hackathon
+
+### Prerequisites
 
 - Python 3.9+
-- pip or poetry
-- ASI-1 API key from [ASI-1 Dashboard](https://asi1.ai/dashboard/api-keys)
-- Frontend deployed and accessible
+- pip3
+- ASI-1 API key from [asi1.ai/dashboard/api-keys](https://asi1.ai/dashboard/api-keys)
 
-## Local Development Setup
+### Option 1: Start Local Agents Only (Recommended)
 
-### Step 1: Clone and Install Dependencies
-
-```bash
-cd agents
-pip install -r requirements.txt
-```
-
-**Required packages:**
-```bash
-pip install uagents uagents_core hyperon requests python-dotenv
-```
-
-### Step 2: Configure Environment Variables
-
-Create a `.env` file in the root directory:
+This is the minimum setup needed for upload and search functionality:
 
 ```bash
-# Copy from example
+# Terminal 1 - Metadata Extractor Agent
+cd agents/metadata-extractor-agent
+pip3 install -r requirements.txt
 cp .env.example .env
+# Edit .env and add: ASI1_API_KEY=your-key-here
+./run_dev.sh
+
+# Terminal 2 - Query Understanding Agent
+cd agents/query-understanding-agent
+pip3 install -r requirements.txt
+cp .env.example .env
+# Edit .env and add: ASI1_API_KEY=your-key-here
+./run_dev.sh
 ```
 
-Edit `.env` with your configuration:
+✅ **You're ready!** The frontend can now:
+- Upload documentation with automatic metadata extraction
+- Search with intelligent query understanding
+
+### Option 2: Full Setup (All Agents)
+
+If you also want chat functionality:
 
 ```bash
-# ===================================
-# API Keys
-# ===================================
+# Start local agents (from Option 1)
+# Then also start:
 
-# ASI-1 LLM API Key (get from https://asi1.ai/dashboard/api-keys)
-ASI1_API_KEY=your-asi1-api-key-here
-
-# ===================================
-# Next.js API Configuration
-# ===================================
-
-# Next.js API base URL (deployed frontend)
-NEXT_API_BASE_URL=https://agent-eth-global.vercel.app/api
-
-# ===================================
-# Agent Addresses
-# ===================================
-
-# Main Agent Address (deployed on AgentVerse)
-MAIN_AGENT_ADDRESS=agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt
-
-# MeTTa Reasoning Agent Address (local or AgentVerse with mailbox)
-METTA_AGENT_ADDRESS=agent1qdxqn3qrsxhsmmxhhjaf2ad4wprgn0jajfdzhhwkq3f5g5q6655cg9nepu4
-
-# ===================================
-# MeTTa Configuration
-# ===================================
-
-# Enable/disable MeTTa reasoning (set to false for faster responses)
-# MeTTa adds symbolic reasoning but increases response time by ~5-10s
-ENABLE_METTA_REASONING=true
-```
-
-### Step 3: Running the Agents
-
-#### Option A: Quick Start with Startup Script (Recommended)
-
-The easiest way to start both agents locally:
-
-```bash
-./start-local.sh
-```
-
-This script will:
-- ✅ Check if `.env` file exists and is configured
-- ✅ Verify Python 3 is installed
-- ✅ Check/install dependencies from `requirements.txt`
-- ✅ Start both agents in separate terminal tabs/windows
-- ✅ Show helpful info about ports and addresses
-
-**Supported platforms:**
-- macOS: Opens new Terminal.app tabs
-- Linux: Uses gnome-terminal or tmux
-- Fallback: Runs in background with log files
-
-#### Option B: Manual Start (Advanced)
-
-**Terminal 1 - MeTTa Agent:**
-```bash
+# Terminal 3 - MeTTa Agent
 cd agents/metta-agent
 python3 metta-agent.py
-```
 
-**Expected output:**
-```
-🤖 MeTTaReasoningAgent started!
-📍 Agent address: agent1qdxqn3qrsxhsmmxhhjaf2ad4wprgn0jajfdzhhwkq3f5g5q6655cg9nepu4
-🌐 Listening on port 8001
-🧠 MeTTa reasoning engine initialized
-✅ Ready to process reasoning requests
-```
-
-**Terminal 2 - Main Agent:**
-```bash
+# Terminal 4 - Main Agent
 cd agents/main-agent
 python3 agent.py
 ```
 
-**Expected output:**
-```
-🤖 ETHGlobalHackerAGENT started!
-📍 Agent address: agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt
-🌐 Listening on port 8000
-🧠 MeTTa reasoning: ENABLED
-✅ Main agent configured
-```
+---
 
-#### Option C: Use Deployed Agents (Production)
-
-If both agents are deployed on AgentVerse with mailbox enabled, you don't need to run anything locally. Just interact with the main agent through AgentVerse or your client application.
-
-### Step 4: Testing the Setup
-
-Create a test script `test_agent.py`:
-
-```python
-from uagents import Agent, Context
-from uagents_core.contrib.protocols.chat import (
-    ChatMessage,
-    ChatAcknowledgement,
-    TextContent,
-    EndSessionContent,
-    chat_protocol_spec
-)
-from datetime import datetime, timezone
-from uuid import uuid4
-
-# Test agent
-agent = Agent(
-    name="test_user",
-    endpoint="http://localhost:8000/submit",  # For local testing
-)
-
-# Main agent address
-MAIN_AGENT_ADDRESS = "agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt"
-
-@agent.on_event("startup")
-async def send_test_query(ctx: Context):
-    query = ChatMessage(
-        timestamp=datetime.now(timezone.utc),
-        msg_id=uuid4(),
-        content=[
-            TextContent(text="How do I deploy a Solidity contract with Hardhat?")
-        ]
-    )
-    await ctx.send(MAIN_AGENT_ADDRESS, query)
-    ctx.logger.info("✅ Test query sent")
-
-@agent.on_message(ChatMessage)
-async def handle_response(ctx: Context, sender: str, msg: ChatMessage):
-    for item in msg.content:
-        if isinstance(item, TextContent):
-            ctx.logger.info(f"📥 Response: {item.text}")
-
-@agent.on_message(ChatAcknowledgement)
-async def handle_ack(ctx: Context, sender: str, msg: ChatAcknowledgement):
-    ctx.logger.info(f"✅ Message acknowledged")
-
-if __name__ == "__main__":
-    agent.run()
-```
-
-Run the test:
-```bash
-python test_agent.py
-```
-
-## Important Notes
-
-### MeTTa Agent - Mailbox Requirement
-
-⚠️ **The MeTTa agent MUST have mailbox enabled** because:
-- It needs to receive messages from the main agent asynchronously
-- Mailbox allows it to work even when not continuously running
-- Without mailbox, messages will be lost if the agent is offline
-
-**To enable mailbox on AgentVerse:**
-1. Go to your agent settings on AgentVerse
-2. Enable "Mailbox" option
-3. Redeploy the agent
-
-### Running Modes
-
-| Mode | Main Agent | MeTTa Agent | Use Case |
-|------|------------|-------------|----------|
-| **Production** | AgentVerse | AgentVerse (Mailbox) | Live deployment |
-| **Development** | Local | Local | Full local testing |
-| **Hybrid** | AgentVerse | Local | Test MeTTa changes |
-
-### Performance Settings
-
-**With MeTTa Reasoning:**
-- Response time: ~7-13 seconds
-- Includes symbolic analysis, dependency detection, execution order
-
-**Without MeTTa Reasoning:**
-- Response time: ~5-8 seconds
-- Faster responses, but no symbolic reasoning
-
-To disable MeTTa reasoning:
-```bash
-ENABLE_METTA_REASONING=false
-```
-
-## Frontend Setup
-
-The frontend must be deployed and accessible. It provides:
-- Documentation upload interface
-- Project management
-- Vector search API endpoints
-
-**Current deployment:** https://agent-eth-global.vercel.app
-
-**Required endpoints:**
-- `GET /api/projects` - Returns list of indexed projects
-- `GET /api/search?projectId=X&searchText=Y` - Searches documentation
-
-## Special Commands
-
-When interacting with the main agent, you can use:
-
-- `/clear` or `/reset` or `/new` - Clear conversation history and start fresh
-
-## Directory Structure
+## 📁 Directory Structure
 
 ```
 agents/
-├── main-agent/
-│   ├── agent.py                    # Main agent
-│   └── README_AGENTVERSE.md        # AgentVerse deployment docs
-├── metta-agent/
-│   ├── metta-agent.py              # MeTTa reasoning agent
-│   └── README_AGENTVERSE.md        # AgentVerse deployment docs
-├── .env                            # Environment variables (create this)
-├── .env.example                    # Environment template
-├── requirements.txt                # Python dependencies
-├── start-local.sh                  # Quick start script
-└── README.md                       # This file
+├── agents/
+│   ├── metadata-extractor-agent/
+│   │   ├── agent.py                    # Metadata extraction agent
+│   │   ├── requirements.txt            # Dependencies
+│   │   ├── .env.example                # Environment template
+│   │   ├── run_dev.sh                  # Hot-reload runner
+│   │   ├── test_agent.sh               # Test script
+│   │   └── README_LOCAL.md             # Setup docs
+│   │
+│   ├── query-understanding-agent/
+│   │   ├── agent.py                    # Query analysis agent
+│   │   ├── requirements.txt            # Dependencies
+│   │   ├── .env.example                # Environment template
+│   │   ├── run_dev.sh                  # Hot-reload runner
+│   │   ├── test_agent.sh               # Test script
+│   │   └── README_LOCAL.md             # Setup docs
+│   │
+│   ├── main-agent/
+│   │   ├── agent.py                    # Main chat agent
+│   │   └── README_AGENTVERSE.md        # Agentverse deployment
+│   │
+│   └── metta-agent/
+│       ├── metta-agent.py              # Symbolic reasoning agent
+│       └── README_AGENTVERSE.md        # Agentverse deployment
+│
+├── LOCAL_TESTING_GUIDE.md             # Complete testing guide
+├── ARCHITECTURE.md                     # System architecture
+└── README.md                           # This file
 ```
 
-## Troubleshooting
+---
 
-### Error: "ASI1_API_KEY not configured"
+## 🔑 Environment Setup
+
+### For Local Agents (metadata-agent & query-agent)
+
+Create `.env` in each agent directory:
+
+```bash
+# ASI-1 API Key (get from https://asi1.ai/dashboard/api-keys)
+ASI1_API_KEY=your_asi1_api_key_here
+```
+
+That's it! No other config needed for local agents.
+
+### For Agentverse Agents (main-agent & metta-agent)
+
+Create `.env` in the `agents/` root directory:
+
+```bash
+# ASI-1 LLM API Key
+ASI1_API_KEY=your-asi1-api-key-here
+
+# Next.js API base URL (deployed frontend)
+NEXT_API_BASE_URL=https://agent-eth-global.vercel.app/api
+
+# Main Agent Address (deployed on AgentVerse)
+MAIN_AGENT_ADDRESS=agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt
+
+# MeTTa Reasoning Agent Address
+METTA_AGENT_ADDRESS=agent1qdxqn3qrsxhsmmxhhjaf2ad4wprgn0jajfdzhhwkq3f5g5q6655cg9nepu4
+
+# Enable/disable MeTTa reasoning
+ENABLE_METTA_REASONING=true
+```
+
+---
+
+## 🧪 Testing
+
+### Test Metadata Extractor Agent
+
+```bash
+cd agents/metadata-extractor-agent
+./test_agent.sh
+```
+
+Expected output: JSON with extracted metadata (tech_stack, domain, keywords, etc.)
+
+### Test Query Understanding Agent
+
+```bash
+cd agents/query-understanding-agent
+./test_agent.sh
+```
+
+Expected output: JSON with query intent (wants_code, languages, technologies, etc.)
+
+### Test End-to-End
+
+1. Start both local agents (ports 8001, 8002)
+2. Start Next.js frontend (port 3000)
+3. Upload a markdown file at http://localhost:3000
+4. Check logs in agent terminals - you should see requests being processed
+
+---
+
+## 🛠️ Development Features
+
+### Hot Reload
+
+Both local agents include hot-reload scripts (`run_dev.sh`):
+- Auto-restarts when you modify `agent.py`
+- Perfect for iterative development
+- No need to manually restart
+
+### Logging
+
+All agents include detailed logging:
+- 📊 Token estimation and limits
+- 🔍 Request/response details
+- ⚠️ Warnings for truncation or errors
+- ✅ Success confirmations
+
+### Error Handling
+
+- Automatic fallback to empty metadata if ASI-1 fails
+- Truncation for oversized content (>208k chars)
+- JSON parsing error recovery
+- Network timeout handling
+
+---
+
+## ⚡ Performance
+
+### Metadata Extractor Agent
+- Model: `asi1-extended`
+- Max tokens: 10,000 (output)
+- Input limit: ~208,000 chars (~52k tokens)
+- Average time: 3-7 seconds per file
+
+### Query Understanding Agent
+- Model: `asi1-extended`
+- Max tokens: 2,000 (output)
+- Average time: 1-3 seconds per query
+
+---
+
+## 🐛 Troubleshooting
+
+### "ASI1_API_KEY not found"
 
 **Solution:**
-1. Get API key from https://asi1.ai/dashboard/api-keys
-2. Add to `.env`: `ASI1_API_KEY=your-key-here`
-3. Restart agents
+1. Create `.env` file in the agent directory
+2. Add `ASI1_API_KEY=your-key-here`
+3. Restart agent
 
-### Error: "MeTTa agent timeout"
+### "Address already in use" (Port 8000 or 8001)
+
+**Solution:**
+```bash
+# Find and kill process
+lsof -ti:8002 | xargs kill -9
+lsof -ti:8002 | xargs kill -9
+```
+
+### "Empty metadata returned"
 
 **Possible causes:**
-- MeTTa agent not running
-- MeTTa agent address incorrect
-- Mailbox not enabled on AgentVerse
+- ASI-1 API key invalid
+- Content too large (check for truncation warning)
+- Network issues
 
 **Solution:**
-1. Verify MeTTa agent is running (check logs)
-2. Verify address in `.env` matches agent address
-3. Enable mailbox on AgentVerse if deployed
-4. Or set `ENABLE_METTA_REASONING=false` to bypass
+- Verify API key
+- Check agent logs for specific errors
+- Try with smaller test file
 
-### Error: "No projects found"
-
-**Possible causes:**
-- Frontend not accessible
-- NEXT_API_BASE_URL incorrect
-- No documentation uploaded yet
+### Frontend can't connect to agents
 
 **Solution:**
-1. Verify frontend is accessible: `curl https://agent-eth-global.vercel.app/api/projects`
-2. Check NEXT_API_BASE_URL in `.env`
-3. Upload documentation through frontend interface
+1. Verify agents are running: `curl http://localhost:8002/` and `curl http://localhost:8002/`
+2. Check `.env.local` in frontend has correct URLs
+3. Restart Next.js dev server
 
-### Response too slow
+---
 
-**Solution:**
-- Disable MeTTa reasoning: `ENABLE_METTA_REASONING=false`
-- Check network latency to frontend API
-- Verify MeTTa agent is responsive
+## 📚 Additional Resources
 
-## Agent Communication Flow
+- **[Full Testing Guide](./LOCAL_TESTING_GUIDE.md)** - Complete testing procedures
+- **[System Architecture](./ARCHITECTURE.md)** - Detailed system design
+- **[Frontend README](../front-end/README.md)** - Frontend setup
+- **[Main README](../README.md)** - Project overview
 
-```
-1. User sends query to Main Agent
-   ↓
-2. Main Agent fetches projects from Frontend API
-   ↓
-3. Main Agent searches documentation via Frontend API
-   ↓
-4. Main Agent sends chunks to MeTTa Agent (if enabled)
-   ↓
-5. MeTTa Agent performs symbolic reasoning
-   ↓
-6. Main Agent receives reasoning results
-   ↓
-7. Main Agent sends everything to ASI-1 LLM
-   ↓
-8. Main Agent returns formatted response to User
-```
+---
 
-## Development Tips
+## 💡 Tips for Hackathon Judges
 
-1. **Start with MeTTa disabled** for faster iteration:
+**To quickly test the system:**
+
+1. **Clone and setup** (5 minutes):
    ```bash
-   ENABLE_METTA_REASONING=false
+   git clone <repo>
+   cd agents/agents/metadata-extractor-agent
+   pip3 install -r requirements.txt
+   echo "ASI1_API_KEY=your-key" > .env
+   ./run_dev.sh
    ```
 
-2. **Monitor logs** to see timing breakdown:
-   - Project fetching
-   - Document search
-   - MeTTa reasoning
-   - LLM call
+2. **In another terminal** (2 minutes):
+   ```bash
+   cd ../query-understanding-agent
+   pip3 install -r requirements.txt
+   echo "ASI1_API_KEY=your-key" > .env
+   ./run_dev.sh
+   ```
 
-3. **Test locally first** before deploying to AgentVerse
+3. **Start frontend** (2 minutes):
+   ```bash
+   cd ../../../front-end
+   yarn install
+   cp .env.example .env.local
+   # Edit .env.local with your keys
+   yarn dev
+   ```
 
-4. **Use conversation memory** - the agent remembers context within a session
+4. **Test** (1 minute):
+   - Go to http://localhost:3000
+   - Upload any markdown file
+   - See automatic metadata extraction!
 
-## API Endpoints Reference
+**Total setup time: ~10 minutes**
 
-### Frontend API
+---
 
-**Get Projects:**
-```bash
-GET https://agent-eth-global.vercel.app/api/projects
-```
+## 🤝 Contributing
 
-Response:
-```json
-{
-  "projects": [
-    {
-      "id": "proj_123",
-      "name": "Hardhat Documentation",
-      "description": "Smart contract development framework"
-    }
-  ],
-  "count": 1
-}
-```
+When adding new features to agents:
+1. Test locally first with hot-reload
+2. Update relevant README
+3. Add tests if adding new functionality
+4. Document any new environment variables
 
-**Search Documentation:**
-```bash
-GET https://agent-eth-global.vercel.app/api/search?projectId=proj_123&searchText=deploy
-```
+---
 
-Response:
-```json
-{
-  "results": [
-    {
-      "content": "To deploy your contract...",
-      "metadata": {
-        "project_id": "proj_123",
-        "section": "deployment"
-      },
-      "score": 0.95
-    }
-  ]
-}
-```
-
-## Deployed Agents
-
-### Main Agent (ETHGlobalHackerAGENT)
-- **Address**: `agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt`
-- **Platform**: AgentVerse
-- **Documentation**: [agents/main-agent/README_AGENTVERSE.md](agents/main-agent/README_AGENTVERSE.md)
-
-### MeTTa Reasoning Agent
-- **Address**: `agent1qdxqn3qrsxhsmmxhhjaf2ad4wprgn0jajfdzhhwkq3f5g5q6655cg9nepu4`
-- **Platform**: AgentVerse (Mailbox enabled) or Local
-- **Documentation**: [agents/metta-agent/README_AGENTVERSE.md](agents/metta-agent/README_AGENTVERSE.md)
-
-## License
+## 📝 License
 
 Built for ETH Global Hackathon
 
-## Credits
+## 👨‍💻 Credits
 
 **Developed by [@gilbertsahumada](https://x.com/gilbertsahumada)**
 

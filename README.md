@@ -34,22 +34,21 @@ AI-powered documentation assistant for hackathon participants. Search indexed bl
                  ▼                │              ▼                │
     ┌────────────────────────┐   │   ┌────────────────────────┐ │
     │  metadata-agent        │◄──┘   │  /api/docs/smart-search│◄┘
-    │  (Agentverse)          │        │  (POST)                │
+    │  (LOCAL - Port 8000)   │        │  (POST)                │
     │  POST /analyze         │        └──────────┬─────────────┘
     └──────────┬─────────────┘                   │
                │                                 │ 1. Calls ─────┐
         ┌──────▼──────────┐                     │               │
         │  ASI1 API       │                     ▼               │
-        │  asi1-fast-     │          ┌────────────────────────┐ │
-        │  agentic        │          │  query-agent           │◄┘
-        │                 │          │  (Agentverse)          │
-        │  Extracts:      │          │  POST /understand      │
-        │  - tech_stack   │          └──────────┬─────────────┘
-        │  - keywords     │                     │
-        │  - domain       │              ┌──────▼──────────┐
-        │  - languages    │              │  ASI1 API       │
-        │  - code snippets│              │  asi1-fast-     │
-        └──────────┬──────┘              │  agentic        │
+        │  asi1-extended  │          ┌────────────────────────┐ │
+        │                 │          │  query-agent           │◄┘
+        │  Extracts:      │          │  (LOCAL - Port 8001)   │
+        │  - tech_stack   │          │  POST /understand      │
+        │  - keywords     │          └──────────┬─────────────┘
+        │  - domain       │                     │
+        │  - languages    │              ┌──────▼──────────┐
+        │  - code snippets│              │  ASI1 API       │
+        └──────────┬──────┘              │  asi1-extended  │
                    │                     │                 │
                    │ Returns metadata    │  Understands:   │
                    │                     │  - wants_code   │
@@ -133,8 +132,10 @@ Multi-agent system using Fetch.ai uAgents framework with MeTTa symbolic reasonin
 **[📖 Agents README →](./agents/README.md)**
 
 **Individual Agent Documentation:**
-- [Main Agent](./agents/main-agent/README_AGENTVERSE.md) - Documentation search and LLM integration
-- [MeTTa Agent](./agents/metta-agent/README_AGENTVERSE.md) - Symbolic reasoning service
+- [Main Agent](./agents/agents/main-agent/README_AGENTVERSE.md) - Documentation search and LLM integration (Agentverse)
+- [MeTTa Agent](./agents/agents/metta-agent/README_AGENTVERSE.md) - Symbolic reasoning service (Agentverse)
+- [Metadata Agent](./agents/agents/metadata-extractor-agent/README_LOCAL.md) - Auto metadata extraction (LOCAL)
+- [Query Agent](./agents/agents/query-understanding-agent/README_LOCAL.md) - Query intent analysis (LOCAL)
 
 ## 🚀 Quick Start
 
@@ -159,15 +160,31 @@ yarn dev
 # Runs on http://localhost:3000
 ```
 
-**Agents:**
+**Local Agents** (Required for upload/search):
 ```bash
-cd agents
-pip install -r requirements.txt
+cd agents/agents
+
+# Terminal 1 - Metadata Extractor Agent
+cd metadata-extractor-agent
+pip3 install -r requirements.txt
 cp .env.example .env
-# Edit .env with your ASI-1 API key
-./start-local.sh
-# MeTTa Agent: http://localhost:8001
-# Main Agent: http://localhost:8000
+# Edit .env with your ASI1_API_KEY
+./run_dev.sh  # Runs on http://localhost:8001
+
+# Terminal 2 - Query Understanding Agent
+cd ../query-understanding-agent
+pip3 install -r requirements.txt
+cp .env.example .env
+# Edit .env with your ASI1_API_KEY
+./run_dev.sh  # Runs on http://localhost:8001
+```
+
+**Agentverse Agents** (Optional for chat functionality):
+```bash
+cd agents/agents
+
+# Main Agent & MeTTa Agent
+# See agents/README.md for deployment instructions
 ```
 
 ## 🔑 Required API Keys
@@ -177,8 +194,10 @@ cp .env.example .env
 - **Qdrant** - Vector search ([qdrant.tech](https://qdrant.tech))
 - **OpenAI** - Embeddings ([platform.openai.com](https://platform.openai.com))
 
-### For Agents:
-- **ASI-1** - LLM API ([asi1.ai/dashboard/api-keys](https://asi1.ai/dashboard/api-keys))
+### For Local Agents (Required):
+- **ASI-1** - LLM API for metadata-agent and query-agent ([asi1.ai/dashboard/api-keys](https://asi1.ai/dashboard/api-keys))
+  - Used by metadata-extractor-agent (port 8000)
+  - Used by query-understanding-agent (port 8001)
 
 ### AgentVerse Deployment Note:
 ⚠️ If deploying agents to AgentVerse, remember to set environment variables in the AgentVerse UI:
@@ -228,9 +247,11 @@ Set `ENABLE_METTA_REASONING=false` in `.env` for faster responses.
 ## 📖 Documentation
 
 - **[Frontend Setup Guide](./front-end/README.md)** - Next.js app, database, API endpoints
-- **[Agents Setup Guide](./agents/README.md)** - Python agents, local development
-- **[Main Agent - AgentVerse](./agents/main-agent/README_AGENTVERSE.md)** - Deployment docs
-- **[MeTTa Agent - AgentVerse](./agents/metta-agent/README_AGENTVERSE.md)** - Reasoning service docs
+- **[Agents Setup Guide](./agents/README.md)** - All agents setup and deployment
+- **[Metadata Agent - Local](./agents/agents/metadata-extractor-agent/README_LOCAL.md)** - Auto metadata extraction
+- **[Query Agent - Local](./agents/agents/query-understanding-agent/README_LOCAL.md)** - Query intent analysis
+- **[Main Agent - AgentVerse](./agents/agents/main-agent/README_AGENTVERSE.md)** - Documentation search agent
+- **[MeTTa Agent - AgentVerse](./agents/agents/metta-agent/README_AGENTVERSE.md)** - Symbolic reasoning service
 
 ## 🛠️ Tech Stack Summary
 
@@ -282,17 +303,19 @@ Powered by ASI Alliance (ASI-1 LLM + MeTTa Reasoning)
 # Start Frontend
 cd front-end && yarn dev
 
-# Start Agents (Quick)
-cd agents && ./start-local.sh
+# Start Local Agents (Required for upload/search)
+cd agents/agents/metadata-extractor-agent && ./run_dev.sh  # Terminal 1
+cd agents/agents/query-understanding-agent && ./run_dev.sh  # Terminal 2
 
-# Start Agents (Manual)
-cd agents/metta-agent && python3 metta-agent.py
-cd agents/main-agent && python3 agent.py
+# Start Agentverse Agents (Optional - for chat)
+cd agents/agents/metta-agent && python3 metta-agent.py  # Terminal 3
+cd agents/agents/main-agent && python3 agent.py         # Terminal 4
 
 # Database Management
 cd front-end && yarn db:studio
 
 # Install Dependencies
 cd front-end && yarn install
-cd agents && pip install -r requirements.txt
+cd agents/agents/metadata-extractor-agent && pip3 install -r requirements.txt
+cd agents/agents/query-understanding-agent && pip3 install -r requirements.txt
 ```

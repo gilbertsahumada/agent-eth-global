@@ -29,8 +29,8 @@ client = OpenAI(
 AGENT_NAME = "QueryUnderstandingAgent"
 agent = Agent(
     name=AGENT_NAME,
-    port=8001,
-    #endpoint=['http://localhost:8001/submit']  # Updated by Agentverse on deploy
+    port=8002,
+    #endpoint=['http://localhost:8002/submit']  # Updated by Agentverse on deploy
 )
 
 class ProjectContext(Model):

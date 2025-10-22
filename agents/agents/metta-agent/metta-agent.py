@@ -24,7 +24,7 @@ DOCS_SEARCH_URL = f"{NEXT_API_BASE}/docs/smart-search"  # Smart search with ASI1
 AGENT_NAME = "MeTTaReasoningAgent"
 agent = Agent(
     name=AGENT_NAME,
-    port=8001,
+    port=8000,
     mailbox=True,  
     #publish_agent_details=False
 )

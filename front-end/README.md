@@ -51,6 +51,8 @@ API Endpoints → AI Agents (AgentVerse)
 - Supabase account
 - Qdrant Cloud account
 - OpenAI API key
+- **Python 3.9+** (for local agents)
+- **ASI-1 API Key** (for local agents)
 
 ## Environment Variables
 
@@ -80,6 +82,10 @@ SUPABASE_PASSWORD=your-database-password
 # Database Connection (for Drizzle ORM)
 # Format: postgresql://postgres:[password]@db.[project-ref].supabase.co:5432/postgres
 DATABASE_URL=postgresql://postgres:your-password@db.your-project-ref.supabase.co:5432/postgres
+
+# Local Agents (Required for upload/search functionality)
+METADATA_AGENT_URL=http://localhost:8002/analyze
+QUERY_AGENT_URL=http://localhost:8002/understand
 ```
 
 ### Getting API Keys
@@ -116,12 +122,51 @@ yarn db:push
 
 ## Development
 
+### Step 1: Start Local Agents (Required)
+
+⚠️ **IMPORTANT:** The frontend requires two local agents to be running for upload and search functionality.
+
+**Terminal 1 - Metadata Extractor Agent:**
+```bash
+cd ../agents/agents/metadata-extractor-agent
+pip3 install -r requirements.txt
+cp .env.example .env
+# Edit .env and add your ASI1_API_KEY
+./run_dev.sh
+```
+
+This agent will run on **http://localhost:8002** and is used for automatic metadata extraction from uploaded markdown files.
+
+**Terminal 2 - Query Understanding Agent:**
+```bash
+cd ../agents/agents/query-understanding-agent
+pip3 install -r requirements.txt
+cp .env.example .env
+# Edit .env and add your ASI1_API_KEY
+./run_dev.sh
+```
+
+This agent will run on **http://localhost:8002** and is used for intelligent query analysis during search.
+
+**Why local agents?**
+- ❌ Cannot deploy to Agentverse - they receive direct HTTP POST requests from Next.js
+- ✅ Must run locally during development
+- ✅ Auto-reload enabled with `run_dev.sh` for easy development
+
+### Step 2: Start Frontend
+
+**Terminal 3 - Next.js:**
 ```bash
 # Run development server (with Turbopack)
 yarn dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to see the application.
+
+**Expected Setup:**
+- ✅ Port 8000: metadata-extractor-agent
+- ✅ Port 8001: query-understanding-agent
+- ✅ Port 3000: Next.js frontend
 
 ## Database Commands
 

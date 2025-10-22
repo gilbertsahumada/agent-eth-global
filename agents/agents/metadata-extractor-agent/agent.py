@@ -29,8 +29,8 @@ client = OpenAI(
 AGENT_NAME = "MetadataExtractorAgent"
 agent = Agent(
     name=AGENT_NAME,
-    port=8000,
-    #endpoint=['http://localhost:8000/submit']
+    port=8001,
+    #endpoint=['http://localhost:8001/submit']
 )
 
 class MarkdownAnalysisRequest(Model):
@@ -77,10 +77,6 @@ class ExtractedMetadata(Model):
         default=[]
     )
 
-# ============================================================================
-# Prompt Template for ASI1
-# ============================================================================
-
 METADATA_EXTRACTION_PROMPT = """Extract metadata from the markdown documentation as JSON.
 
 Return ONLY valid JSON (no markdown, no explanations) with these fields:
@@ -109,10 +105,6 @@ Rules:
 - Empty arrays [] if nothing found
 """
 
-# ============================================================================
-# Analysis Function
-# ============================================================================
-
 def estimate_tokens(text: str) -> int:
     """Estimate token count (rough: 1 token ≈ 4 chars)"""
     return len(text) // 4
@@ -132,9 +124,10 @@ def analyze_markdown(markdown_content: str, file_name: str) -> dict:
     """
     try:
         # ASI1 extended limits: ~64k tokens total (input + output)
-        # Reserve 10k for output, 2k for prompt = 52k for content (~200k chars)
-        MAX_INPUT_TOKENS = 52000
-        MAX_INPUT_CHARS = MAX_INPUT_TOKENS * 4  # ~208,000 chars
+        # Max generation: 8192 tokens (ASI1 limit)
+        # Reserve 8k for output, 2k for prompt = 54k for content (~216k chars)
+        MAX_INPUT_TOKENS = 54000
+        MAX_INPUT_CHARS = MAX_INPUT_TOKENS * 4  # ~216,000 chars
 
         content_tokens = estimate_tokens(markdown_content)
         prompt_tokens = estimate_tokens(METADATA_EXTRACTION_PROMPT)
@@ -160,7 +153,7 @@ def analyze_markdown(markdown_content: str, file_name: str) -> dict:
                     "content": f"{METADATA_EXTRACTION_PROMPT}\n\nFile: {file_name}\n\nMarkdown Content:\n{markdown_content}"
                 }
             ],
-            max_tokens=10000  # Reserve for output
+            max_tokens=8000  # ASI1 extended max generation limit is 8192
         )
 
         # Parse JSON response
@@ -214,10 +207,6 @@ def analyze_markdown(markdown_content: str, file_name: str) -> dict:
             "code_snippets": []
         }
 
-# ============================================================================
-# REST Endpoint Handler
-# ============================================================================
-
 @agent.on_rest_post("/analyze", MarkdownAnalysisRequest, ExtractedMetadata)
 async def handle_analysis_request(ctx: Context, req: MarkdownAnalysisRequest) -> ExtractedMetadata:
     """
@@ -249,10 +238,6 @@ async def handle_analysis_request(ctx: Context, req: MarkdownAnalysisRequest) ->
 
     # Return response directly (REST endpoint)
     return ExtractedMetadata(**metadata)
-
-# ============================================================================
-# Startup
-# ============================================================================
 
 @agent.on_event("startup")
 async def on_startup(ctx: Context):

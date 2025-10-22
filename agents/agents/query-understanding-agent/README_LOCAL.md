@@ -25,14 +25,14 @@ cp .env.example .env
 python agent.py
 ```
 
-The agent will start an HTTP server on **http://localhost:8001**
+The agent will start an HTTP server on **http://localhost:8002**
 
 ## 📡 Testing the Endpoint
 
 ### Using curl:
 
 ```bash
-curl -X POST http://localhost:8001/understand \
+curl -X POST http://localhost:8002/understand \
   -H "Content-Type: application/json" \
   -d '{
     "query": "How do I deploy a VRF contract using Hardhat?",
@@ -67,7 +67,7 @@ curl -X POST http://localhost:8001/understand \
 In your `front-end/.env.local`, set:
 
 ```bash
-QUERY_AGENT_URL=http://localhost:8001/understand
+QUERY_AGENT_URL=http://localhost:8002/understand
 ```
 
 ## 📊 Logs

@@ -281,11 +281,11 @@ What would you like to know about any of these projects?"""
 
                 # Wait for response (with timeout)
                 import asyncio
-                max_wait = 5  # 5 seconds timeout (reduced for faster response)
+                max_wait = 30  # 30 seconds timeout for MeTTa reasoning
                 waited = 0
                 while session_id not in metta_reasoning_cache and waited < max_wait:
-                    await asyncio.sleep(0.3)
-                    waited += 0.3
+                    await asyncio.sleep(0.5)
+                    waited += 0.5
 
                 # Check if we got a response
                 if session_id in metta_reasoning_cache:

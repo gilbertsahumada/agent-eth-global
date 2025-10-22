@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { QdrantIntelligentService } from "@/lib/qdrant-intelligent";
 import { supabase } from "@/lib/supabase";
-import { ProjectInsert, ProjectUpdate } from "@/lib/interfaces";
+import { ProjectInsert, ProjectRow, ProjectUpdate } from "@/lib/interfaces";
 import { extractMetadata } from "@/lib/agents/metadata-agent-client";
 import { randomUUID } from "crypto";
-import path from "path";
-import { writeFile, mkdir, readFile } from "fs/promises";
-import { existsSync } from "fs";
 
 export async function POST(req: NextRequest) {
     try {
@@ -51,15 +48,8 @@ export async function POST(req: NextRequest) {
         const projectId = randomUUID();
         const collectionName = `project_${projectId.replace(/-/g, '_')}`;
 
-        // Crear directorio temporal si no existe
-        const uploadDir = path.join(process.cwd(), 'uploads', projectId);
-        if (!existsSync(uploadDir)) {
-            await mkdir(uploadDir, { recursive: true });
-        }
-
-        // Process all files and extract metadata
+        // Process all files and extract metadata (in-memory, no filesystem)
         const qdrantService = new QdrantIntelligentService();
-        const filePaths: string[] = [];
         const allMetadata: {
             techStack: Set<string>;
             keywords: Set<string>;
@@ -74,20 +64,19 @@ export async function POST(req: NextRequest) {
             descriptions: []
         };
 
-        console.log('[API /projects POST] Processing files...');
+        console.log('[API /projects POST] Processing files in-memory (serverless-compatible)...');
 
-        // Save and process all files
+        // Store file info for later insertion (after project is created)
+        const fileInfos: Array<{ name: string; size: number; preview: string }> = [];
+
+        // Process all files in memory
         for (const file of files) {
             const bytes = await file.arrayBuffer();
             const buffer = Buffer.from(bytes);
-            const fileName = `${Date.now()}_${file.name}`;
-            const filePath = path.join(uploadDir, fileName);
 
-            await writeFile(filePath, buffer);
-            console.log(`[API /projects POST] Saved: ${filePath}`);
-
-            // Read markdown content
+            // Read markdown content directly from buffer (no filesystem write)
             const markdownContent = buffer.toString('utf-8');
+            console.log(`[API /projects POST] Processing: ${file.name} (${markdownContent.length} chars)`);
 
             // Extract metadata using agent (ASI1-powered)
             console.log(`[API /projects POST] Calling metadata-agent for ${file.name}...`);
@@ -102,9 +91,10 @@ export async function POST(req: NextRequest) {
                 description: extractedMetadata.description
             };
 
-            // Index in Qdrant with pre-extracted metadata
-            const metadata = await qdrantService.processMarkdownFile(
-                filePath,
+            // Index in Qdrant with pre-extracted metadata (in-memory processing)
+            const metadata = await qdrantService.processMarkdownContent(
+                markdownContent,
+                file.name,
                 projectId,
                 metadataForQdrant // Pass agent-extracted metadata
             );
@@ -121,20 +111,12 @@ export async function POST(req: NextRequest) {
                 allMetadata.domains.set(metadata.domain, count + 1);
             }
 
-            filePaths.push(filePath);
-
-            // Register document in Supabase
-            const { error: docError } = await supabase
-                .from('project_documents')
-                .insert({
-                    project_id: projectId,
-                    file_path: filePath,
-                    file_name: file.name
-                }).select().single();
-
-            if (docError) {
-                console.warn(`[API /projects POST] Warning: Failed to register document ${file.name}:`, docError);
-            }
+            // Store file info for later (after project is created)
+            fileInfos.push({
+                name: file.name,
+                size: buffer.length,
+                preview: markdownContent.slice(0, 500)
+            });
         }
 
         // Determine primary domain (most frequent)
@@ -163,7 +145,7 @@ export async function POST(req: NextRequest) {
             .from('projects')
             .insert(projectData)
             .select()
-            .single();
+            .single<ProjectRow>();
 
         if (projectError) {
             console.error('[API /projects POST] Error creating project:', projectError);
@@ -178,6 +160,25 @@ export async function POST(req: NextRequest) {
         console.log(`  - Domain: ${projectData.domain}`);
         console.log(`  - Languages: ${projectData.tags?.join(', ')}`);
         console.log(`  - Keywords: ${projectData.keywords?.length} keywords`);
+
+        // Now insert file records (after project exists)
+        console.log('[API /projects POST] Registering documents in database...');
+        for (const fileInfo of fileInfos) {
+            const { error: docError } = await supabase
+                .from('project_documents')
+                .insert({
+                    project_id: projectId,
+                    file_name: fileInfo.name,
+                    file_size: fileInfo.size,
+                    content_preview: fileInfo.preview,
+                } as any);
+
+            if (docError) {
+                console.error(`[API /projects POST] ⚠️  Warning: Failed to register document ${fileInfo.name}:`, docError.message);
+            } else {
+                console.log(`[API /projects POST] ✅ Document registered: ${fileInfo.name}`);
+            }
+        }
 
         return NextResponse.json({
             message: "Project indexed successfully",
