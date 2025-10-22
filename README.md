@@ -221,9 +221,6 @@ cd agents/agents
 - ASI-1 LLM for intelligent responses
 - Conversation memory per user
 
-### Special Commands
-- `/clear`, `/reset`, `/new` - Clear conversation history
-
 ## 🎯 Use Cases
 
 Perfect for:
