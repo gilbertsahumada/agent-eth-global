@@ -23,7 +23,7 @@ export default function Navbar() {
           <span className="text-sm font-semibold tracking-tight">ETH Global RAG</span>
         </Link>
 
-        <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-white/70 p-1">
+        <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-white/70 p-1 shadow-sm">
           {links.map(({ href, label }) => {
             const isActive = pathname === href;
 
@@ -31,13 +31,19 @@ export default function Navbar() {
               <Link
                 key={href}
                 href={href}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                className={`relative overflow-hidden rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-300 ease-out ${
                   isActive
-                    ? 'bg-slate-900 text-white'
+                    ? 'text-white'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
-                {label}
+                <span
+                  className={`pointer-events-none absolute inset-0 scale-95 rounded-full bg-slate-900 transition-all duration-300 ease-out ${
+                    isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
+                  }`}
+                  aria-hidden
+                ></span>
+                <span className="relative z-10">{label}</span>
               </Link>
             );
           })}

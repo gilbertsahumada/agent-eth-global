@@ -5,6 +5,11 @@ async function seedSponsors() {
   console.log('🌱 Seeding sponsors...');
 
   try {
+    // First, delete all existing sponsors
+    console.log('🗑️  Deleting existing sponsors...');
+    await db.delete(schema.sponsors);
+    console.log('✅ Existing sponsors deleted');
+
     // Common ETH Global sponsors
     const sponsorsData = [
       {
@@ -72,6 +77,17 @@ async function seedSponsors() {
         category: 'Identity',
         tags: ['Identity', 'Privacy', 'Biometrics'],
         techStack: ['Solidity', 'TypeScript', 'React'],
+      },
+      {
+        id: randomUUID(),
+        name: 'Artificial Superintelligence Alliance',
+        description: 'Decentralized AI network combining Fetch.ai, SingularityNET, and Ocean Protocol for autonomous AI agents and machine learning',
+        website: 'https://fetch.ai/',
+        logo: 'https://cryptologos.cc/logos/fetch-ai-fet-logo.png',
+        docUrl: 'https://docs.fetch.ai/',
+        category: 'AI',
+        tags: ['AI', 'Machine Learning', 'Autonomous Agents'],
+        techStack: ['Python', 'CosmWasm', 'TypeScript'],
       },
     ];
 
