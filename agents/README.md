@@ -58,7 +58,7 @@ These agents can be deployed to Agentverse for chat functionality:
 
 #### 4. **MeTTa Reasoning Agent** (`metta-agent/`)
 - **Port:** 8001 (local) or Agentverse (requires Mailbox)
-- **Address:** `agent1qdxqn3qrsxhsmmxhhjaf2ad4wprgn0jajfdzhhwkq3f5g5q6655cg9nepu4`
+- **Address:** `agent1q28esldytcauznk5tex8ryx5u5xdcg97p85wcttyk437zz035pl8g0pt8sv`
 - **Purpose:** Provides symbolic reasoning and dependency detection
 - **Documentation:** [README_AGENTVERSE.md](./agents/metta-agent/README_AGENTVERSE.md)
 
@@ -179,7 +179,7 @@ NEXT_API_BASE_URL=https://agent-eth-global.vercel.app/api
 MAIN_AGENT_ADDRESS=agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt
 
 # MeTTa Reasoning Agent Address
-METTA_AGENT_ADDRESS=agent1qdxqn3qrsxhsmmxhhjaf2ad4wprgn0jajfdzhhwkq3f5g5q6655cg9nepu4
+METTA_AGENT_ADDRESS=agent1q28esldytcauznk5tex8ryx5u5xdcg97p85wcttyk437zz035pl8g0pt8sv
 
 # Enable/disable MeTTa reasoning
 ENABLE_METTA_REASONING=true
