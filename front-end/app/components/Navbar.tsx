@@ -14,13 +14,13 @@ export default function Navbar() {
   ];
 
   return (
-    <nav className="bg-gray-900 border-b border-gray-800">
+    <nav className="bg-white border-b border-gray-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              <HiCpuChip className="text-2xl text-blue-500" />
-              <span className="text-white font-bold text-xl">Agent RAG</span>
+              <HiCpuChip className="text-2xl text-gray-900" />
+              <span className="text-gray-900 font-bold text-xl">ETH Global RAG</span>
             </Link>
           </div>
 
@@ -34,8 +34,8 @@ export default function Navbar() {
                   href={link.href}
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
                     isActive
-                      ? 'bg-gray-800 text-white'
-                      : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                      ? 'bg-gray-900 text-white'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                   }`}
                 >
                   <Icon className="text-lg" />
