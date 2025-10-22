@@ -25,14 +25,14 @@ cp .env.example .env
 python agent.py
 ```
 
-The agent will start an HTTP server on **http://localhost:8000**
+The agent will start an HTTP server on **http://localhost:8001**
 
 ## 📡 Testing the Endpoint
 
 ### Using curl:
 
 ```bash
-curl -X POST http://localhost:8000/analyze \
+curl -X POST http://localhost:8001/analyze \
   -H "Content-Type: application/json" \
   -d '{
     "markdown_content": "# Chainlink VRF Tutorial\n\nThis guide shows how to use Chainlink VRF with Hardhat.\n\n```solidity\ncontract VRFConsumer {\n  // code here\n}\n```",
@@ -58,7 +58,7 @@ curl -X POST http://localhost:8000/analyze \
 In your `front-end/.env.local`, set:
 
 ```bash
-METADATA_AGENT_URL=http://localhost:8000/analyze
+METADATA_AGENT_URL=http://localhost:8001/analyze
 ```
 
 ## 📊 Logs

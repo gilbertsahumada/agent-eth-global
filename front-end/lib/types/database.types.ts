@@ -16,22 +16,25 @@ export type Database = {
     Tables: {
       project_documents: {
         Row: {
+          content_preview: string | null
           file_name: string
-          file_path: string
+          file_size: number | null
           id: string
           indexed_at: string
           project_id: string
         }
         Insert: {
+          content_preview?: string | null
           file_name: string
-          file_path: string
+          file_size?: number | null
           id?: string
           indexed_at?: string
           project_id: string
         }
         Update: {
+          content_preview?: string | null
           file_name?: string
-          file_path?: string
+          file_size?: number | null
           id?: string
           indexed_at?: string
           project_id?: string

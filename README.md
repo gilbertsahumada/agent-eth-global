@@ -169,7 +169,7 @@ cd metadata-extractor-agent
 pip3 install -r requirements.txt
 cp .env.example .env
 # Edit .env with your ASI1_API_KEY
-./run_dev.sh  # Runs on http://localhost:8000
+./run_dev.sh  # Runs on http://localhost:8001
 
 # Terminal 2 - Query Understanding Agent
 cd ../query-understanding-agent

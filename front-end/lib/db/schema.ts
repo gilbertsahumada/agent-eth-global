@@ -27,16 +27,18 @@ export const projects = pgTable('projects', {
   isActiveIdx: index('is_active_idx').on(table.isActive),  // For filtering active projects
 }));
 
-// Tabla de documentos (opcional, para tracking)
+// Tabla de documentos (para tracking de archivos procesados)
+// Serverless-compatible: No guarda archivos, solo metadata
 export const projectDocuments = pgTable('project_documents', {
   id: uuid('id').defaultRandom().primaryKey(),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
-  filePath: text('file_path').notNull(),
   fileName: text('file_name').notNull(),
+  fileSize: integer('file_size'), // Size in bytes
+  contentPreview: text('content_preview'), // First 500 chars for preview
   indexedAt: timestamp('indexed_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
-  projectIdIdx: uniqueIndex('project_id_idx').on(table.projectId),
-  uniqueFilePerProject: uniqueIndex('unique_file_per_project').on(table.projectId, table.filePath),
+  projectIdIdx: index('project_id_idx').on(table.projectId),
+  uniqueFilePerProject: uniqueIndex('unique_file_per_project').on(table.projectId, table.fileName),
 }));
 
 // NOTA: Los tipos se generan automáticamente desde Supabase

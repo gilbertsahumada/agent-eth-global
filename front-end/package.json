@@ -11,7 +11,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "types:generate": "npx supabase gen types typescript --project-id akphvgihrdzialjxvrik --schema app > lib/types/database.types.ts"
+    "types:generate": "npx supabase gen types --project-id akphvgihrdzialjxvrik --schema public > lib/types/database.types.ts"
   },
   "dependencies": {
     "@qdrant/js-client-rest": "^1.15.1",

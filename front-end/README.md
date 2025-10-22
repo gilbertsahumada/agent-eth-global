@@ -84,8 +84,8 @@ SUPABASE_PASSWORD=your-database-password
 DATABASE_URL=postgresql://postgres:your-password@db.your-project-ref.supabase.co:5432/postgres
 
 # Local Agents (Required for upload/search functionality)
-METADATA_AGENT_URL=http://localhost:8000/analyze
-QUERY_AGENT_URL=http://localhost:8001/understand
+METADATA_AGENT_URL=http://localhost:8002/analyze
+QUERY_AGENT_URL=http://localhost:8002/understand
 ```
 
 ### Getting API Keys
@@ -135,7 +135,7 @@ cp .env.example .env
 ./run_dev.sh
 ```
 
-This agent will run on **http://localhost:8000** and is used for automatic metadata extraction from uploaded markdown files.
+This agent will run on **http://localhost:8002** and is used for automatic metadata extraction from uploaded markdown files.
 
 **Terminal 2 - Query Understanding Agent:**
 ```bash
@@ -146,7 +146,7 @@ cp .env.example .env
 ./run_dev.sh
 ```
 
-This agent will run on **http://localhost:8001** and is used for intelligent query analysis during search.
+This agent will run on **http://localhost:8002** and is used for intelligent query analysis during search.
 
 **Why local agents?**
 - ❌ Cannot deploy to Agentverse - they receive direct HTTP POST requests from Next.js

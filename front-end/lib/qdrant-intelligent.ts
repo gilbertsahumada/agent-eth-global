@@ -361,6 +361,160 @@ export class QdrantIntelligentService {
    * @param projectId - Project UUID
    * @param preExtractedMetadata - Optional pre-extracted metadata from agent (preferred)
    */
+  /**
+   * Process markdown content directly from memory (no filesystem access)
+   * Recommended for serverless environments (Vercel, AWS Lambda, etc.)
+   */
+  async processMarkdownContent(
+    markdownContent: string,
+    fileName: string,
+    projectId: string,
+    preExtractedMetadata?: {
+      techStack: string[];
+      keywords: string[];
+      domain: string | null;
+      languages: string[];
+      description: string;
+    }
+  ): Promise<{
+    techStack: string[];
+    keywords: string[];
+    domain: string | null;
+    languages: string[];
+    description: string;
+  }> {
+    const collectionName = await this.initializeProjectCollection(projectId);
+
+    // Parse frontmatter if present
+    const { data: frontmatter, content: cleanContent } = matter(markdownContent);
+
+    console.log(`[INTELLIGENT] Processing: ${fileName} (in-memory)`);
+
+    // Use pre-extracted metadata if available (from agent), otherwise extract locally
+    let finalMetadata;
+    if (preExtractedMetadata) {
+      console.log(`[INTELLIGENT] Using pre-extracted metadata from agent`);
+      finalMetadata = preExtractedMetadata;
+    } else {
+      console.log(`[INTELLIGENT] Extracting metadata locally (fallback)`);
+      const extractedMetadata = MetadataExtractor.extract(cleanContent, frontmatter);
+      finalMetadata = MetadataExtractor.mergeFrontmatter(extractedMetadata, frontmatter);
+    }
+
+    console.log(`[INTELLIGENT] Metadata:`);
+    console.log(`  - Tech Stack: ${finalMetadata.techStack.join(', ')}`);
+    console.log(`  - Domain: ${finalMetadata.domain || 'Unknown'}`);
+    console.log(`  - Languages: ${finalMetadata.languages.join(', ')}`);
+    console.log(`  - Keywords: ${finalMetadata.keywords.length} keywords`);
+
+    // 1. Parse document structure
+    const sections = this.parseMarkdownStructure(cleanContent);
+    console.log(`[INTELLIGENT] Found ${sections.length} sections`);
+
+    // 2. Extract code snippets (complete, not fragmented)
+    const codeChunks = this.extractCodeSnippets(sections);
+    console.log(`[INTELLIGENT] Extracted ${codeChunks.length} code snippets`);
+
+    // 3. Process sections into semantic chunks
+    const conceptChunks: SemanticChunk[] = [];
+    for (const section of sections) {
+      conceptChunks.push(...this.processSection(section));
+    }
+    console.log(`[INTELLIGENT] Created ${conceptChunks.length} conceptual chunks`);
+
+    // 4. Combine all chunks
+    const allChunks = [...codeChunks, ...conceptChunks];
+    console.log(`[INTELLIGENT] Total chunks: ${allChunks.length}`);
+
+    // 5. Generate embeddings and store
+    const points = await Promise.all(
+      allChunks.map(async (chunk, index) => {
+        const embedding = await this.generateEmbedding(chunk.content);
+
+        // Convert frontmatter to JSON string to avoid Qdrant payload issues
+        const frontmatterStr = frontmatter && Object.keys(frontmatter).length > 0
+          ? JSON.stringify(frontmatter)
+          : null;
+
+        return {
+          id: this.hashString(`${projectId}-${fileName}-${chunk.type}-${index}`),
+          vector: embedding,
+          payload: {
+            projectId,
+            fileName, // Use fileName instead of filePath
+            content: chunk.content,
+            type: chunk.type,
+            hierarchy: chunk.hierarchy,
+            language: chunk.language || null,
+            // Metadata for hybrid search (vector + filtering)
+            section: chunk.hierarchy[0] || null,
+            subsection: chunk.hierarchy[1] || null,
+            hasCode: chunk.metadata.hasCode,
+            codeLanguage: chunk.metadata.codeLanguage || null,
+            keywords: chunk.metadata.keywords || [],
+            importance: chunk.metadata.importance || 'medium',
+            // Original frontmatter as JSON string (Qdrant-compatible)
+            frontmatter: frontmatterStr,
+          },
+        };
+      })
+    );
+
+    console.log(`[INTELLIGENT] Upserting ${points.length} points to Qdrant...`);
+
+    // Qdrant has a 33MB payload limit per request
+    // Split into batches to avoid exceeding the limit
+    const BATCH_SIZE = 100; // Conservative batch size
+    const batches: typeof points[] = [];
+
+    for (let i = 0; i < points.length; i += BATCH_SIZE) {
+      batches.push(points.slice(i, i + BATCH_SIZE));
+    }
+
+    console.log(`[INTELLIGENT] Splitting into ${batches.length} batches (${BATCH_SIZE} points each)`);
+
+    try {
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        console.log(`[INTELLIGENT] Upserting batch ${i + 1}/${batches.length} (${batch.length} points)...`);
+
+        await this.client.upsert(collectionName, {
+          wait: true,
+          points: batch,
+        });
+
+        console.log(`[INTELLIGENT] ✅ Batch ${i + 1}/${batches.length} complete`);
+      }
+    } catch (error: any) {
+      console.error('[INTELLIGENT] ❌ Qdrant upsert error:', error.message);
+      console.error('[INTELLIGENT] Status:', error.status);
+
+      // Try multiple ways to extract the error details
+      if (error.data) {
+        console.error('[INTELLIGENT] Response data:', error.data);
+        console.error('[INTELLIGENT] Response data (stringified):', JSON.stringify(error.data, null, 2));
+      }
+      if (error.response?.data) {
+        console.error('[INTELLIGENT] Response.data:', JSON.stringify(error.response.data, null, 2));
+      }
+
+      console.error('[INTELLIGENT] First point ID:', points[0]?.id);
+      console.error('[INTELLIGENT] Number of points:', points.length);
+      console.error('[INTELLIGENT] Collection:', collectionName);
+
+      throw error;
+    }
+
+    console.log(`[INTELLIGENT] ✅ Indexed ${points.length} semantic chunks`);
+
+    // Return extracted metadata
+    return finalMetadata;
+  }
+
+  /**
+   * @deprecated Use processMarkdownContent() instead for serverless compatibility
+   * This method reads from filesystem which doesn't work on Vercel/serverless
+   */
   async processMarkdownFile(
     filePath: string,
     projectId: string,
@@ -431,6 +585,11 @@ export class QdrantIntelligentService {
       allChunks.map(async (chunk, index) => {
         const embedding = await this.generateEmbedding(chunk.content);
 
+        // Convert frontmatter to JSON string to avoid Qdrant payload issues
+        const frontmatterStr = frontmatter && Object.keys(frontmatter).length > 0
+          ? JSON.stringify(frontmatter)
+          : null;
+
         return {
           id: this.hashString(`${projectId}-${filePath}-${chunk.type}-${index}`),
           vector: embedding,
@@ -440,7 +599,7 @@ export class QdrantIntelligentService {
             content: chunk.content,
             type: chunk.type,
             hierarchy: chunk.hierarchy,
-            language: chunk.language,
+            language: chunk.language || null,
             // Metadata for hybrid search (vector + filtering)
             section: chunk.hierarchy[0] || null,
             subsection: chunk.hierarchy[1] || null,
@@ -448,17 +607,55 @@ export class QdrantIntelligentService {
             codeLanguage: chunk.metadata.codeLanguage || null,
             keywords: chunk.metadata.keywords || [],
             importance: chunk.metadata.importance || 'medium',
-            // Original frontmatter
-            frontmatter,
+            // Original frontmatter as JSON string (Qdrant-compatible)
+            frontmatter: frontmatterStr,
           },
         };
       })
     );
 
-    await this.client.upsert(collectionName, {
-      wait: true,
-      points,
-    });
+    // Qdrant has a 33MB payload limit per request
+    // Split into batches to avoid exceeding the limit
+    const BATCH_SIZE = 100; // Conservative batch size
+    const batches: typeof points[] = [];
+
+    for (let i = 0; i < points.length; i += BATCH_SIZE) {
+      batches.push(points.slice(i, i + BATCH_SIZE));
+    }
+
+    console.log(`[INTELLIGENT] Splitting into ${batches.length} batches (${BATCH_SIZE} points each)`);
+
+    try {
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        console.log(`[INTELLIGENT] Upserting batch ${i + 1}/${batches.length} (${batch.length} points)...`);
+
+        await this.client.upsert(collectionName, {
+          wait: true,
+          points: batch,
+        });
+
+        console.log(`[INTELLIGENT] ✅ Batch ${i + 1}/${batches.length} complete`);
+      }
+    } catch (error: any) {
+      console.error('[INTELLIGENT] ❌ Qdrant upsert error:', error.message);
+      console.error('[INTELLIGENT] Status:', error.status);
+
+      // Try multiple ways to extract the error details
+      if (error.data) {
+        console.error('[INTELLIGENT] Response data:', error.data);
+        console.error('[INTELLIGENT] Response data (stringified):', JSON.stringify(error.data, null, 2));
+      }
+      if (error.response?.data) {
+        console.error('[INTELLIGENT] Response.data:', JSON.stringify(error.response.data, null, 2));
+      }
+
+      console.error('[INTELLIGENT] First point ID:', points[0]?.id);
+      console.error('[INTELLIGENT] Number of points:', points.length);
+      console.error('[INTELLIGENT] Collection:', collectionName);
+
+      throw error;
+    }
 
     console.log(`[INTELLIGENT] ✅ Indexed ${points.length} semantic chunks`);
 

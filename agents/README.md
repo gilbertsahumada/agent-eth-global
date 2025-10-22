@@ -17,11 +17,11 @@ Multi-agent AI system for hackathon documentation assistance using ASI-1 LLM and
 │ 📍 LOCAL AGENTS (Required)  │  │ 🌐 AGENTVERSE (Optional)    │
 ├─────────────────────────────┤  ├─────────────────────────────┤
 │ metadata-extractor-agent    │  │ main-agent                  │
-│ Port: 8000                  │  │ Chat & search coordination  │
+│ Port: 8001                  │  │ Chat & search coordination  │
 │ Purpose: Auto metadata      │  │                             │
 │                             │  │ metta-agent                 │
 │ query-understanding-agent   │  │ Symbolic reasoning          │
-│ Port: 8001                  │  │                             │
+│ Port: 8002                  │  │                             │
 │ Purpose: Intent analysis    │  │                             │
 └─────────────────────────────┘  └─────────────────────────────┘
 ```
@@ -33,14 +33,14 @@ Multi-agent AI system for hackathon documentation assistance using ASI-1 LLM and
 These agents MUST run locally because they receive direct HTTP POST requests from the Next.js frontend:
 
 #### 1. **Metadata Extractor Agent** (`metadata-extractor-agent/`)
-- **Port:** 8000
+- **Port:** 8001
 - **Deployment:** LOCAL ONLY
 - **Purpose:** Automatically extracts tech stack, keywords, domain, and languages from uploaded markdown files using ASI-1
 - **Used By:** `/api/projects` (upload endpoint)
 - **Documentation:** [README_LOCAL.md](./agents/metadata-extractor-agent/README_LOCAL.md)
 
 #### 2. **Query Understanding Agent** (`query-understanding-agent/`)
-- **Port:** 8001
+- **Port:** 8002
 - **Deployment:** LOCAL ONLY
 - **Purpose:** Analyzes search queries to extract intent, technologies, and build dynamic filters using ASI-1
 - **Used By:** `/api/docs/smart-search` (search endpoint)
@@ -209,7 +209,7 @@ Expected output: JSON with query intent (wants_code, languages, technologies, et
 
 ### Test End-to-End
 
-1. Start both local agents (ports 8000, 8001)
+1. Start both local agents (ports 8001, 8002)
 2. Start Next.js frontend (port 3000)
 3. Upload a markdown file at http://localhost:3000
 4. Check logs in agent terminals - you should see requests being processed
@@ -271,8 +271,8 @@ All agents include detailed logging:
 **Solution:**
 ```bash
 # Find and kill process
-lsof -ti:8000 | xargs kill -9
-lsof -ti:8001 | xargs kill -9
+lsof -ti:8002 | xargs kill -9
+lsof -ti:8002 | xargs kill -9
 ```
 
 ### "Empty metadata returned"
@@ -290,7 +290,7 @@ lsof -ti:8001 | xargs kill -9
 ### Frontend can't connect to agents
 
 **Solution:**
-1. Verify agents are running: `curl http://localhost:8000/` and `curl http://localhost:8001/`
+1. Verify agents are running: `curl http://localhost:8002/` and `curl http://localhost:8002/`
 2. Check `.env.local` in frontend has correct URLs
 3. Restart Next.js dev server
 
