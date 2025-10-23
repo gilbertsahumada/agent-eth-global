@@ -186,73 +186,145 @@ yarn db:studio
 
 ## API Endpoints
 
-### GET /api/projects
+### POST /api/docs/smart-search
 
-Get all indexed projects with metadata.
+**🔥 Main API for agent queries**. Performs intelligent semantic search across sponsors of the currently active hackathon. Uses ASI1-powered query understanding for automatic filtering.
 
-**Response:**
+**Request Body:**
 ```json
 {
-  "projects": [
-    {
-      "id": "uuid",
-      "name": "Hardhat Documentation",
-      "collectionName": "hardhat-docs",
-      "description": "Smart contract development framework",
-      "techStack": ["Solidity", "Hardhat", "JavaScript"],
-      "domain": "Smart Contracts",
-      "tags": ["development", "testing", "deployment"],
-      "keywords": ["deploy", "compile", "test"],
-      "documentCount": 25,
-      "lastIndexedAt": "2025-01-17T10:30:00Z",
-      "createdAt": "2025-01-15T08:00:00Z",
-      "updatedAt": "2025-01-17T10:30:00Z"
-    }
-  ],
-  "count": 1
+  "query": "How to deploy a Chainlink VRF contract?",
+  "limit": 10
 }
 ```
-
-### GET /api/docs/multi-search
-
-Search across multiple projects using semantic search.
-
-**Query Parameters:**
-- `searchText` (required): Search query
-- `projectId` (optional): Filter by specific project
 
 **Response:**
 ```json
 {
   "results": [
     {
-      "content": "To deploy your Hardhat contract...",
-      "metadata": {
-        "project_id": "uuid",
-        "section": "deployment",
-        "file_name": "deployment.md"
-      },
+      "content": "To deploy a VRF contract...",
+      "sponsorId": "uuid",
+      "sponsorName": "Chainlink",
+      "sponsorCategory": "Oracle",
+      "collectionName": "sponsor_chainlink_uuid",
+      "type": "code",
+      "hasCode": true,
       "score": 0.95
     }
   ],
-  "projectsSearched": ["hardhat-docs", "foundry-docs"],
-  "totalResults": 10
+  "totalResults": 8,
+  "hackathon": {
+    "id": "uuid",
+    "name": "ETH Global Online",
+    "location": "Online"
+  },
+  "sponsorsSearched": 3,
+  "sponsorNames": ["Chainlink", "Polygon", "The Graph"]
 }
 ```
 
-### POST /api/docs
+### GET /api/hackathons
 
-Upload and index documentation.
+Get all hackathons.
 
-**Request Body:**
+**Response:**
 ```json
 {
-  "projectId": "uuid",
-  "content": "# Documentation content...",
-  "fileName": "getting-started.md",
-  "metadata": {
-    "section": "introduction",
-    "tags": ["setup", "installation"]
+  "hackathons": [
+    {
+      "id": "uuid",
+      "name": "ETH Global Online",
+      "location": "Online",
+      "isActive": true,
+      "startDate": "2024-09-15",
+      "endDate": "2024-09-29"
+    }
+  ]
+}
+```
+
+### POST /api/hackathons/[id]/activate
+
+Set a hackathon as active (for agent queries).
+
+**Response:**
+```json
+{
+  "success": true,
+  "hackathon": {
+    "id": "uuid",
+    "name": "ETH Global Buenos Aires",
+    "isActive": true,
+    "sponsorCount": 5
+  }
+}
+```
+
+### GET /api/hackathons/active
+
+Get the currently active hackathon.
+
+**Response:**
+```json
+{
+  "success": true,
+  "hackathon": {
+    "id": "uuid",
+    "name": "ETH Global Online",
+    "isActive": true,
+    "sponsorCount": 7,
+    "indexedSponsorCount": 3
+  },
+  "sponsors": [
+    {
+      "id": "uuid",
+      "name": "Chainlink",
+      "collectionName": "sponsor_chainlink_uuid",
+      "documentCount": 15
+    }
+  ]
+}
+```
+
+### GET /api/sponsors
+
+Get all sponsors.
+
+**Response:**
+```json
+{
+  "sponsors": [
+    {
+      "id": "uuid",
+      "name": "Chainlink",
+      "category": "Oracle",
+      "collectionName": "sponsor_chainlink_uuid",
+      "documentCount": 15,
+      "lastIndexedAt": "2025-01-20T10:00:00Z"
+    }
+  ]
+}
+```
+
+### POST /api/sponsors/index
+
+Index sponsor documentation (multipart/form-data).
+
+**Request:**
+- `sponsorId`: UUID
+- `files[]`: Markdown files
+
+**Response:**
+```json
+{
+  "success": true,
+  "filesProcessed": 5,
+  "chunksCreated": 127,
+  "sponsor": {
+    "id": "uuid",
+    "name": "Chainlink",
+    "documentCount": 15
   }
 }
 ```
@@ -263,61 +335,108 @@ Upload and index documentation.
 front-end/
 ├── app/
 │   ├── api/
-│   │   ├── projects/
-│   │   │   └── route.ts          # Projects API endpoint
+│   │   ├── hackathons/
+│   │   │   ├── route.ts              # GET hackathons
+│   │   │   ├── active/route.ts       # GET active hackathon
+│   │   │   └── [id]/
+│   │   │       ├── activate/route.ts # POST activate hackathon
+│   │   │       └── sponsors/route.ts # Hackathon-sponsor relations
+│   │   ├── sponsors/
+│   │   │   ├── route.ts              # GET sponsors
+│   │   │   └── index/route.ts        # POST index sponsor docs
 │   │   └── docs/
-│   │       ├── route.ts          # Documentation upload
-│   │       └── multi-search/
-│   │           └── route.ts      # Search endpoint
-│   ├── components/               # React components
-│   ├── projects/                 # Project management pages
-│   ├── search/                   # Search interface
-│   ├── layout.tsx                # Root layout
-│   ├── page.tsx                  # Home page
-│   └── globals.css               # Global styles
+│   │       └── smart-search/route.ts # POST smart search (main API)
+│   ├── components/
+│   │   ├── Navbar.tsx                # Nav with active hackathon badge
+│   │   ├── HackathonFlowVisualization.tsx
+│   │   ├── SponsorIndexModal.tsx
+│   │   └── nodes/                    # React Flow nodes
+│   ├── hackathons/                   # Hackathon management page
+│   ├── layout.tsx                    # Root layout
+│   ├── page.tsx                      # Sponsor Tools (home)
+│   └── globals.css                   # Global styles
 ├── lib/
 │   ├── db/
-│   │   └── schema.ts             # Drizzle ORM schema
-│   └── types/                    # TypeScript types
-├── drizzle/                      # Database migrations
-├── public/                       # Static assets
-├── .env.local                    # Environment variables (create this)
-├── .env.example                  # Environment template
-├── drizzle.config.ts             # Drizzle configuration
-├── next.config.ts                # Next.js configuration
-├── package.json                  # Dependencies
-└── tsconfig.json                 # TypeScript configuration
+│   │   ├── client.ts                 # Drizzle client
+│   │   └── schema.ts                 # Database schema
+│   ├── agents/                       # Agent HTTP clients
+│   ├── qdrant-intelligent.ts         # Qdrant service
+│   └── metadata-extractor.ts         # Local metadata extraction
+├── scripts/
+│   ├── seed.ts                       # Main seed script
+│   ├── seed-hackathons.ts
+│   ├── seed-sponsors.ts
+│   └── verify-seed.ts
+├── drizzle/                          # Database migrations
+├── .env.local                        # Environment variables (create this)
+├── drizzle.config.ts                 # Drizzle configuration
+├── next.config.ts                    # Next.js configuration
+└── package.json                      # Dependencies
 ```
 
 ## Database Schema
 
-### Projects Table
+### Hackathons Table
 
 ```typescript
 {
   id: uuid (PK),
   name: text (unique),
-  collectionName: text (unique),
+  location: text,
+  startDate: timestamp,
+  endDate: timestamp,
   description: text,
-  techStack: text[],
-  domain: text,
-  tags: text[],
-  keywords: text[],
-  documentCount: integer,
-  lastIndexedAt: timestamp,
+  website: text,
+  isActive: boolean,    // Only ONE can be true at a time
   createdAt: timestamp,
   updatedAt: timestamp
 }
 ```
 
-### Project Documents Table
+### Sponsors Table
 
 ```typescript
 {
   id: uuid (PK),
-  projectId: uuid (FK → projects.id),
-  filePath: text,
+  name: text (unique),
+  collectionName: text (unique),  // Qdrant collection
+  description: text,
+  website: text,
+  logo: text,
+  docUrl: text,
+  techStack: text[],
+  category: text,
+  tags: text[],
+  documentCount: integer,
+  lastIndexedAt: timestamp,
+  isActive: boolean,
+  createdAt: timestamp,
+  updatedAt: timestamp
+}
+```
+
+### Hackathon-Sponsors Relationship (Many-to-Many)
+
+```typescript
+{
+  id: uuid (PK),
+  hackathonId: uuid (FK → hackathons.id, CASCADE),
+  sponsorId: uuid (FK → sponsors.id, CASCADE),
+  tier: text,           // e.g., 'Gold', 'Silver', 'Partner'
+  prizeAmount: integer,
+  createdAt: timestamp
+}
+```
+
+### Sponsor Documents Table
+
+```typescript
+{
+  id: uuid (PK),
+  sponsorId: uuid (FK → sponsors.id, CASCADE),
   fileName: text,
+  fileSize: integer,
+  contentPreview: text,
   indexedAt: timestamp
 }
 ```
@@ -342,21 +461,30 @@ Make sure to add all variables from `.env.example` to your Vercel project settin
 
 ## Usage with AI Agents
 
-The frontend API is consumed by the AI agents:
+The frontend API is consumed by the AI agents. The system automatically filters searches by the **active hackathon**.
 
 **Main Agent:**
 ```python
-# Fetch projects
-response = requests.get(f"{NEXT_API_BASE_URL}/projects")
-projects = response.json()["projects"]
-
-# Search documentation
-response = requests.get(
-    f"{NEXT_API_BASE_URL}/docs/multi-search",
-    params={"searchText": query, "projectId": project_id}
+# Smart search (automatically uses active hackathon)
+response = requests.post(
+    f"{NEXT_API_BASE_URL}/docs/smart-search",
+    json={"query": "How to deploy Chainlink VRF?", "limit": 10}
 )
-results = response.json()["results"]
+data = response.json()
+
+# Results are automatically filtered by active hackathon's sponsors
+results = data["results"]
+hackathon = data["hackathon"]  # {"name": "ETH Global Online", ...}
+sponsors = data["sponsorNames"]  # ["Chainlink", "Polygon", ...]
+
+# Get active hackathon info
+response = requests.get(f"{NEXT_API_BASE_URL}/hackathons/active")
+active = response.json()
+print(f"Active: {active['hackathon']['name']}")
+print(f"Sponsors: {len(active['sponsors'])}")
 ```
+
+**Key Feature:** The agent doesn't need to specify which hackathon or sponsors to search. The system automatically filters by the active hackathon set in the UI.
 
 ## Vector Search Details
 
@@ -371,9 +499,10 @@ results = response.json()["results"]
 - Preserves context across chunks
 
 **Qdrant Collections:**
-- One collection per project
-- Metadata stored with each vector
-- Filtered search by project/domain/tags
+- One collection per sponsor (e.g., `sponsor_chainlink_uuid`)
+- Parallel search across multiple sponsor collections
+- Metadata stored with each vector (sponsor, category, tech stack)
+- Automatic filtering by active hackathon
 
 ## Development Tips
 
@@ -411,6 +540,8 @@ results = response.json()["results"]
 | `yarn db:migrate` | Apply migrations |
 | `yarn db:push` | Push schema directly |
 | `yarn db:studio` | Open database GUI |
+| `yarn db:seed` | Seed hackathons + sponsors |
+| `yarn db:seed:hackathons` | Seed only hackathons |
 | `yarn types:generate` | Generate TypeScript types |
 
 ## Performance

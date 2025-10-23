@@ -14,7 +14,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { QdrantIntelligentService } from "@/lib/qdrant-intelligent";
-import { supabase } from "@/lib/supabase";
+import { db, schema } from "@/lib/db/client";
+import { eq } from "drizzle-orm";
 import { analyzeQuery } from "@/lib/agents/query-agent-client";
 
 export async function POST(req: NextRequest) {
@@ -40,46 +41,68 @@ export async function POST(req: NextRequest) {
     console.log(`[SmartSearch] Query: "${query}"`);
     console.log(`[SmartSearch] Limit: ${limit}`);
 
-    // 1. Get available projects from database
-    let projectsQuery = supabase.from('projects').select('*');
+    // 1. Get active hackathon from database
+    const [activeHackathon] = await db
+      .select()
+      .from(schema.hackathons)
+      .where(eq(schema.hackathons.isActive, true))
+      .limit(1);
 
-    if (!includeInactive) {
-      projectsQuery = projectsQuery.eq('is_active', true);
-    }
-
-    const { data: projects, error: projectsError } = await projectsQuery;
-
-    if (projectsError) {
-      console.error('[SmartSearch] Database error:', projectsError);
-      return NextResponse.json(
-        { error: `Failed to fetch projects: ${projectsError.message}` },
-        { status: 500 }
-      );
-    }
-
-    if (!projects || projects.length === 0) {
+    if (!activeHackathon) {
       return NextResponse.json({
         results: [],
         totalResults: 0,
         query,
-        message: "No projects indexed yet"
+        message: "No active hackathon found. Please set an active hackathon first.",
+        error: "NO_ACTIVE_HACKATHON"
       }, { status: 200 });
     }
 
-    console.log(`[SmartSearch] Found ${projects.length} active project(s)`);
+    console.log(`[SmartSearch] Active hackathon: ${activeHackathon.name}`);
 
-    // 2. Call query-understanding-agent to analyze query intent
+    // 2. Get sponsors for this hackathon
+    const sponsorRelations = await db
+      .select({
+        sponsor: schema.sponsors
+      })
+      .from(schema.hackathonSponsors)
+      .innerJoin(schema.sponsors, eq(schema.hackathonSponsors.sponsorId, schema.sponsors.id))
+      .where(eq(schema.hackathonSponsors.hackathonId, activeHackathon.id));
+
+    const sponsors = sponsorRelations.map(rel => rel.sponsor);
+
+    // Filter only active sponsors with indexed documents
+    const indexedSponsors = sponsors.filter(s =>
+      s.isActive && s.documentCount && s.documentCount > 0
+    );
+
+    if (indexedSponsors.length === 0) {
+      return NextResponse.json({
+        results: [],
+        totalResults: 0,
+        query,
+        message: `No indexed sponsors found for ${activeHackathon.name}. Please index sponsor documentation first.`,
+        hackathon: {
+          id: activeHackathon.id,
+          name: activeHackathon.name
+        }
+      }, { status: 200 });
+    }
+
+    console.log(`[SmartSearch] Found ${indexedSponsors.length} indexed sponsor(s) for ${activeHackathon.name}`);
+
+    // 3. Call query-understanding-agent to analyze query intent
     console.log(`[SmartSearch] Calling query-agent to understand intent...`);
 
-    const projectContexts = projects.map(p => ({
-      id: p.id,
-      name: p.name,
-      domain: p.domain || '',
-      tech_stack: p.tech_stack || [],
-      keywords: p.keywords || []
+    const sponsorContexts = indexedSponsors.map(s => ({
+      id: s.id,
+      name: s.name,
+      domain: s.category || 'Other',
+      tech_stack: s.techStack || [],
+      keywords: s.tags || []
     }));
 
-    const queryIntent = await analyzeQuery(query, projectContexts);
+    const queryIntent = await analyzeQuery(query, sponsorContexts);
 
     console.log(`[SmartSearch] Query intent extracted:`);
     console.log(`  - Wants code: ${queryIntent.wants_code}`);
@@ -87,17 +110,21 @@ export async function POST(req: NextRequest) {
     console.log(`  - Technologies: ${queryIntent.technologies.join(', ') || 'None'}`);
     console.log(`  - Action: ${queryIntent.action || 'None'}`);
     console.log(`  - Domain: ${queryIntent.domain || 'Any'}`);
-    console.log(`  - Relevant projects: ${queryIntent.relevant_project_ids.length}`);
+    console.log(`  - Relevant sponsors: ${queryIntent.relevant_project_ids.length}`);
     console.log(`  - Search focus: ${queryIntent.search_focus}`);
 
-    // 3. Search only in relevant projects
-    const relevantProjectIds = queryIntent.relevant_project_ids.length > 0
+    // 4. Determine which sponsors to search
+    const relevantSponsorIds = queryIntent.relevant_project_ids.length > 0
       ? queryIntent.relevant_project_ids
-      : projects.map(p => p.id);
+      : indexedSponsors.map(s => s.id);
 
-    console.log(`[SmartSearch] Searching in ${relevantProjectIds.length} project(s)`);
+    const relevantSponsors = indexedSponsors.filter(s =>
+      relevantSponsorIds.includes(s.id)
+    );
 
-    // 4. Build dynamic filters for Qdrant based on intent
+    console.log(`[SmartSearch] Searching in ${relevantSponsors.length} sponsor(s)`);
+
+    // 5. Build dynamic filters for Qdrant based on intent
     const qdrantFilters: any = {};
 
     if (queryIntent.wants_code) {
@@ -116,49 +143,48 @@ export async function POST(req: NextRequest) {
 
     console.log(`[SmartSearch] Applying filters:`, qdrantFilters);
 
-    // 5. Search across relevant projects with dynamic filters
+    // 6. Search across relevant sponsors in parallel (optimized!)
     const qdrantService = new QdrantIntelligentService();
-    const allResults = [];
 
-    for (const projectId of relevantProjectIds) {
-      try {
-        const results = await qdrantService.searchDocuments(
-          projectId,
-          query,
-          {
-            limit: Math.ceil(limit / relevantProjectIds.length), // Distribute limit across projects
-            filter: Object.keys(qdrantFilters).length > 0 ? qdrantFilters : undefined
-          }
-        );
+    // Get collection names for all relevant sponsors
+    const collectionNames = relevantSponsors.map(s => s.collectionName);
 
-        // Enrich with project info
-        const project = projects.find(p => p.id === projectId);
-        const enrichedResults = results.map(r => ({
-          ...r,
-          projectId,
-          projectName: project?.name || 'Unknown',
-          projectDomain: project?.domain,
-          projectTechStack: project?.tech_stack || []
-        }));
+    console.log(`[SmartSearch] Searching collections:`, collectionNames);
 
-        allResults.push(...enrichedResults);
-      } catch (error) {
-        console.error(`[SmartSearch] Error searching project ${projectId}:`, error);
-        // Continue with other projects
+    // Use new parallel search method
+    const allResults = await qdrantService.searchMultipleCollections(
+      collectionNames,
+      query,
+      {
+        limit,
+        filter: Object.keys(qdrantFilters).length > 0 ? qdrantFilters : undefined
       }
-    }
+    );
 
-    // 6. Sort by relevance score and limit
-    allResults.sort((a, b) => (b.score || 0) - (a.score || 0));
-    const topResults = allResults.slice(0, limit);
+    // Enrich results with sponsor info
+    const enrichedResults = allResults.map(r => {
+      const sponsor = relevantSponsors.find(s => s.collectionName === r.collectionName);
+      return {
+        ...r,
+        sponsorId: sponsor?.id || 'Unknown',
+        sponsorName: sponsor?.name || 'Unknown',
+        sponsorCategory: sponsor?.category,
+        sponsorTechStack: sponsor?.techStack || []
+      };
+    });
 
-    console.log(`[SmartSearch] Found ${allResults.length} total results, returning top ${topResults.length}`);
+    console.log(`[SmartSearch] Found ${enrichedResults.length} results from ${relevantSponsors.length} sponsors`);
 
     // 7. Return results with metadata
     return NextResponse.json({
-      results: topResults,
-      totalResults: allResults.length,
+      results: enrichedResults,
+      totalResults: enrichedResults.length,
       query,
+      hackathon: {
+        id: activeHackathon.id,
+        name: activeHackathon.name,
+        location: activeHackathon.location,
+      },
       queryIntent: {
         wantsCode: queryIntent.wants_code,
         languages: queryIntent.languages,
@@ -168,7 +194,8 @@ export async function POST(req: NextRequest) {
         searchFocus: queryIntent.search_focus
       },
       appliedFilters: qdrantFilters,
-      projectsSearched: relevantProjectIds.length
+      sponsorsSearched: relevantSponsors.length,
+      sponsorNames: relevantSponsors.map(s => s.name)
     }, { status: 200 });
 
   } catch (error) {
@@ -187,26 +214,28 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     endpoint: "POST /api/docs/smart-search",
-    description: "Intelligent document search with ASI1-powered query understanding",
+    description: "Intelligent document search with ASI1-powered query understanding - searches only in active hackathon's sponsors",
     usage: {
       method: "POST",
       body: {
         query: "string (required) - Your search query",
         limit: "number (optional, 1-50, default: 10) - Max results",
-        includeInactive: "boolean (optional, default: false) - Include inactive projects"
+        includeInactive: "boolean (optional, default: false) - Include inactive sponsors"
       }
     },
     example: {
-      query: "How to deploy a VRF contract with Hardhat?",
+      query: "How to deploy a Chainlink VRF contract?",
       limit: 10
     },
     features: [
       "Automatic query intent understanding (ASI1-powered)",
       "Dynamic filter generation based on query",
-      "Multi-project intelligent routing",
+      "Multi-sponsor parallel search (optimized)",
+      "Active hackathon filtering (transparent)",
       "Code vs concept detection",
       "Technology and language filtering",
       "Relevance-based ranking"
-    ]
+    ],
+    note: "Only searches in sponsors of the currently active hackathon. Set an active hackathon first using POST /api/hackathons/[id]/activate"
   });
 }
