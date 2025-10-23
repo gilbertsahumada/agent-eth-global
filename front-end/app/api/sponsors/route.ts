@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, schema } from "@/lib/db/client";
-import { eq } from "drizzle-orm";
+import { supabase } from "@/lib/supabase";
 import { randomUUID } from "crypto";
 
 // GET all sponsors
@@ -10,13 +9,40 @@ export async function GET(req: NextRequest) {
         const includeInactive = searchParams.get('includeInactive') === 'true';
 
         // By default, only return active sponsors
-        const sponsors = includeInactive 
-            ? await db.select().from(schema.sponsors)
-            : await db.select().from(schema.sponsors).where(eq(schema.sponsors.isActive, true));
+        let query = supabase.from('sponsors').select('*');
+
+        if (!includeInactive) {
+            query = query.eq('is_active', true);
+        }
+
+        const { data: sponsors, error } = await query;
+
+        if (error) {
+            throw error;
+        }
+
+        // Transform snake_case to camelCase for frontend
+        const transformedSponsors = sponsors?.map(s => ({
+            id: s.id,
+            name: s.name,
+            collectionName: s.collection_name,
+            description: s.description,
+            website: s.website,
+            logo: s.logo,
+            docUrl: s.doc_url,
+            techStack: s.tech_stack,
+            category: s.category,
+            tags: s.tags,
+            documentCount: s.document_count,
+            lastIndexedAt: s.last_indexed_at,
+            isActive: s.is_active,
+            createdAt: s.created_at,
+            updatedAt: s.updated_at,
+        })) || [];
 
         return NextResponse.json({
-            sponsors,
-            count: sponsors.length
+            sponsors: transformedSponsors,
+            count: transformedSponsors.length
         }, { status: 200 });
 
     } catch (error) {
@@ -46,23 +72,50 @@ export async function POST(req: NextRequest) {
         const sponsorId = randomUUID();
         const collectionName = `sponsor_${sponsorId.replace(/-/g, '_')}`;
 
-        const [sponsor] = await db.insert(schema.sponsors).values({
-            id: sponsorId,
-            name,
-            collectionName,
-            description,
-            website,
-            logo,
-            docUrl,
-            techStack: techStack || [],
-            category,
-            tags: tags || [],
-            documentCount: 0,
-        }).returning();
+        const { data: sponsor, error } = await supabase
+            .from('sponsors')
+            .insert({
+                id: sponsorId,
+                name,
+                collection_name: collectionName,
+                description,
+                website,
+                logo,
+                doc_url: docUrl,
+                tech_stack: techStack || [],
+                category,
+                tags: tags || [],
+                document_count: 0,
+            })
+            .select()
+            .single();
+
+        if (error) {
+            throw error;
+        }
+
+        // Transform to camelCase
+        const transformedSponsor = {
+            id: sponsor.id,
+            name: sponsor.name,
+            collectionName: sponsor.collection_name,
+            description: sponsor.description,
+            website: sponsor.website,
+            logo: sponsor.logo,
+            docUrl: sponsor.doc_url,
+            techStack: sponsor.tech_stack,
+            category: sponsor.category,
+            tags: sponsor.tags,
+            documentCount: sponsor.document_count,
+            lastIndexedAt: sponsor.last_indexed_at,
+            isActive: sponsor.is_active,
+            createdAt: sponsor.created_at,
+            updatedAt: sponsor.updated_at,
+        };
 
         return NextResponse.json({
             message: "Sponsor created successfully",
-            sponsor
+            sponsor: transformedSponsor
         }, { status: 201 });
 
     } catch (error) {
@@ -87,25 +140,48 @@ export async function PATCH(req: NextRequest) {
             );
         }
 
-        const [updated] = await db
-            .update(schema.sponsors)
-            .set({
+        const { data: updated, error } = await supabase
+            .from('sponsors')
+            .update({
                 ...updateData,
-                updatedAt: new Date()
+                updated_at: new Date().toISOString()
             })
-            .where(eq(schema.sponsors.id, id))
-            .returning();
+            .eq('id', id)
+            .select()
+            .single();
 
-        if (!updated) {
-            return NextResponse.json(
-                { error: 'Sponsor not found' },
-                { status: 404 }
-            );
+        if (error) {
+            if (error.code === 'PGRST116') {
+                return NextResponse.json(
+                    { error: 'Sponsor not found' },
+                    { status: 404 }
+                );
+            }
+            throw error;
         }
+
+        // Transform to camelCase
+        const transformedSponsor = {
+            id: updated.id,
+            name: updated.name,
+            collectionName: updated.collection_name,
+            description: updated.description,
+            website: updated.website,
+            logo: updated.logo,
+            docUrl: updated.doc_url,
+            techStack: updated.tech_stack,
+            category: updated.category,
+            tags: updated.tags,
+            documentCount: updated.document_count,
+            lastIndexedAt: updated.last_indexed_at,
+            isActive: updated.is_active,
+            createdAt: updated.created_at,
+            updatedAt: updated.updated_at,
+        };
 
         return NextResponse.json({
             message: "Sponsor updated successfully",
-            sponsor: updated
+            sponsor: transformedSponsor
         }, { status: 200 });
 
     } catch (error) {

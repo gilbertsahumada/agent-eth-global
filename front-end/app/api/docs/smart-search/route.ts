@@ -14,8 +14,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { QdrantIntelligentService } from "@/lib/qdrant-intelligent";
-import { db, schema } from "@/lib/db/client";
-import { eq } from "drizzle-orm";
+import { supabase } from "@/lib/supabase";
 import { analyzeQuery } from "@/lib/agents/query-agent-client";
 
 export async function POST(req: NextRequest) {
@@ -42,13 +41,13 @@ export async function POST(req: NextRequest) {
     console.log(`[SmartSearch] Limit: ${limit}`);
 
     // 1. Get active hackathon from database
-    const [activeHackathon] = await db
-      .select()
-      .from(schema.hackathons)
-      .where(eq(schema.hackathons.isActive, true))
-      .limit(1);
+    const { data: activeHackathon, error: hackathonError } = await supabase
+      .from('hackathons')
+      .select('*')
+      .eq('is_active', true)
+      .single();
 
-    if (!activeHackathon) {
+    if (hackathonError || !activeHackathon) {
       return NextResponse.json({
         results: [],
         totalResults: 0,
@@ -61,19 +60,20 @@ export async function POST(req: NextRequest) {
     console.log(`[SmartSearch] Active hackathon: ${activeHackathon.name}`);
 
     // 2. Get sponsors for this hackathon
-    const sponsorRelations = await db
-      .select({
-        sponsor: schema.sponsors
-      })
-      .from(schema.hackathonSponsors)
-      .innerJoin(schema.sponsors, eq(schema.hackathonSponsors.sponsorId, schema.sponsors.id))
-      .where(eq(schema.hackathonSponsors.hackathonId, activeHackathon.id));
+    const { data: sponsorRelations, error: sponsorError } = await supabase
+      .from('hackathon_sponsors')
+      .select('sponsors(*)')
+      .eq('hackathon_id', activeHackathon.id);
 
-    const sponsors = sponsorRelations.map(rel => rel.sponsor);
+    if (sponsorError) {
+      throw sponsorError;
+    }
+
+    const sponsors = sponsorRelations?.map(rel => rel.sponsors).filter(Boolean) || [];
 
     // Filter only active sponsors with indexed documents
     const indexedSponsors = sponsors.filter(s =>
-      s.isActive && s.documentCount && s.documentCount > 0
+      s.is_active && s.document_count && s.document_count > 0
     );
 
     if (indexedSponsors.length === 0) {
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       id: s.id,
       name: s.name,
       domain: s.category || 'Other',
-      tech_stack: s.techStack || [],
+      tech_stack: s.tech_stack || [],
       keywords: s.tags || []
     }));
 
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
     const qdrantService = new QdrantIntelligentService();
 
     // Get collection names for all relevant sponsors
-    const collectionNames = relevantSponsors.map(s => s.collectionName);
+    const collectionNames = relevantSponsors.map(s => s.collection_name);
 
     console.log(`[SmartSearch] Searching collections:`, collectionNames);
 
@@ -163,13 +163,13 @@ export async function POST(req: NextRequest) {
 
     // Enrich results with sponsor info
     const enrichedResults = allResults.map(r => {
-      const sponsor = relevantSponsors.find(s => s.collectionName === r.collectionName);
+      const sponsor = relevantSponsors.find(s => s.collection_name === r.collectionName);
       return {
         ...r,
         sponsorId: sponsor?.id || 'Unknown',
         sponsorName: sponsor?.name || 'Unknown',
         sponsorCategory: sponsor?.category,
-        sponsorTechStack: sponsor?.techStack || []
+        sponsorTechStack: sponsor?.tech_stack || []
       };
     });
 

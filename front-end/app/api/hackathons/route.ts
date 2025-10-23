@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, schema } from "@/lib/db/client";
-import { eq } from "drizzle-orm";
+import { supabase } from "@/lib/supabase";
 
 // GET all hackathons
 export async function GET(req: NextRequest) {
@@ -8,18 +7,36 @@ export async function GET(req: NextRequest) {
         const searchParams = req.nextUrl.searchParams;
         const includeInactive = searchParams.get('includeInactive') === 'true';
 
-        let query = db.select().from(schema.hackathons);
+        let query = supabase.from('hackathons').select('*');
 
         // By default, only return active hackathons
         if (!includeInactive) {
-            query = query.where(eq(schema.hackathons.isActive, true));
+            query = query.eq('is_active', true);
         }
 
-        const hackathons = await query;
+        const { data: hackathons, error } = await query;
+
+        if (error) {
+            throw error;
+        }
+
+        // Transform snake_case to camelCase for frontend
+        const transformedHackathons = hackathons?.map(h => ({
+            id: h.id,
+            name: h.name,
+            location: h.location,
+            startDate: h.start_date,
+            endDate: h.end_date,
+            description: h.description,
+            website: h.website,
+            isActive: h.is_active,
+            createdAt: h.created_at,
+            updatedAt: h.updated_at,
+        })) || [];
 
         return NextResponse.json({
-            hackathons,
-            count: hackathons.length
+            hackathons: transformedHackathons,
+            count: transformedHackathons.length
         }, { status: 200 });
 
     } catch (error) {
@@ -45,18 +62,40 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const [hackathon] = await db.insert(schema.hackathons).values({
-            name,
-            location,
-            startDate: startDate ? new Date(startDate) : null,
-            endDate: endDate ? new Date(endDate) : null,
-            description,
-            website,
-        }).returning();
+        const { data: hackathon, error } = await supabase
+            .from('hackathons')
+            .insert({
+                name,
+                location,
+                start_date: startDate ? new Date(startDate).toISOString() : null,
+                end_date: endDate ? new Date(endDate).toISOString() : null,
+                description,
+                website,
+            })
+            .select()
+            .single();
+
+        if (error) {
+            throw error;
+        }
+
+        // Transform to camelCase
+        const transformedHackathon = {
+            id: hackathon.id,
+            name: hackathon.name,
+            location: hackathon.location,
+            startDate: hackathon.start_date,
+            endDate: hackathon.end_date,
+            description: hackathon.description,
+            website: hackathon.website,
+            isActive: hackathon.is_active,
+            createdAt: hackathon.created_at,
+            updatedAt: hackathon.updated_at,
+        };
 
         return NextResponse.json({
             message: "Hackathon created successfully",
-            hackathon
+            hackathon: transformedHackathon
         }, { status: 201 });
 
     } catch (error) {
@@ -81,25 +120,43 @@ export async function PATCH(req: NextRequest) {
             );
         }
 
-        const [updated] = await db
-            .update(schema.hackathons)
-            .set({
+        const { data: updated, error } = await supabase
+            .from('hackathons')
+            .update({
                 ...updateData,
-                updatedAt: new Date()
+                updated_at: new Date().toISOString()
             })
-            .where(eq(schema.hackathons.id, id))
-            .returning();
+            .eq('id', id)
+            .select()
+            .single();
 
-        if (!updated) {
-            return NextResponse.json(
-                { error: 'Hackathon not found' },
-                { status: 404 }
-            );
+        if (error) {
+            if (error.code === 'PGRST116') {
+                return NextResponse.json(
+                    { error: 'Hackathon not found' },
+                    { status: 404 }
+                );
+            }
+            throw error;
         }
+
+        // Transform to camelCase
+        const transformedHackathon = {
+            id: updated.id,
+            name: updated.name,
+            location: updated.location,
+            startDate: updated.start_date,
+            endDate: updated.end_date,
+            description: updated.description,
+            website: updated.website,
+            isActive: updated.is_active,
+            createdAt: updated.created_at,
+            updatedAt: updated.updated_at,
+        };
 
         return NextResponse.json({
             message: "Hackathon updated successfully",
-            hackathon: updated
+            hackathon: transformedHackathon
         }, { status: 200 });
 
     } catch (error) {

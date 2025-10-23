@@ -8,21 +8,20 @@
  */
 
 import { NextResponse } from 'next/server';
-import { db, schema } from '@/lib/db/client';
-import { eq } from 'drizzle-orm';
+import { supabase } from '@/lib/supabase';
 
 export async function GET() {
   try {
     console.log('[API /hackathons/active] Fetching active hackathon');
 
     // Get the active hackathon
-    const [activeHackathon] = await db
-      .select()
-      .from(schema.hackathons)
-      .where(eq(schema.hackathons.isActive, true))
-      .limit(1);
+    const { data: activeHackathon, error: hackathonError } = await supabase
+      .from('hackathons')
+      .select('*')
+      .eq('is_active', true)
+      .single();
 
-    if (!activeHackathon) {
+    if (hackathonError || !activeHackathon) {
       return NextResponse.json(
         {
           success: false,
@@ -34,20 +33,19 @@ export async function GET() {
     }
 
     // Get sponsors for this hackathon
-    const sponsorRelations = await db
-      .select({
-        id: schema.hackathonSponsors.id,
-        tier: schema.hackathonSponsors.tier,
-        sponsor: schema.sponsors
-      })
-      .from(schema.hackathonSponsors)
-      .innerJoin(schema.sponsors, eq(schema.hackathonSponsors.sponsorId, schema.sponsors.id))
-      .where(eq(schema.hackathonSponsors.hackathonId, activeHackathon.id));
+    const { data: sponsorRelations, error: sponsorError } = await supabase
+      .from('hackathon_sponsors')
+      .select('id, tier, sponsors(*)')
+      .eq('hackathon_id', activeHackathon.id);
 
-    const sponsors = sponsorRelations.map(rel => rel.sponsor);
+    if (sponsorError) {
+      throw sponsorError;
+    }
 
-    // Count indexed sponsors (those with documentCount > 0)
-    const indexedSponsors = sponsors.filter(s => s.documentCount && s.documentCount > 0);
+    const sponsors = sponsorRelations?.map(rel => rel.sponsors).filter(Boolean) || [];
+
+    // Count indexed sponsors (those with document_count > 0)
+    const indexedSponsors = sponsors.filter(s => s.document_count && s.document_count > 0);
 
     console.log(`[API /hackathons/active] Found: ${activeHackathon.name}`);
     console.log(`[API /hackathons/active] Sponsors: ${sponsors.length} total, ${indexedSponsors.length} indexed`);
@@ -58,21 +56,21 @@ export async function GET() {
         id: activeHackathon.id,
         name: activeHackathon.name,
         location: activeHackathon.location,
-        startDate: activeHackathon.startDate,
-        endDate: activeHackathon.endDate,
+        startDate: activeHackathon.start_date,
+        endDate: activeHackathon.end_date,
         description: activeHackathon.description,
         website: activeHackathon.website,
-        isActive: activeHackathon.isActive,
+        isActive: activeHackathon.is_active,
         sponsorCount: sponsors.length,
         indexedSponsorCount: indexedSponsors.length,
       },
       sponsors: sponsors.map(s => ({
         id: s.id,
         name: s.name,
-        collectionName: s.collectionName,
+        collectionName: s.collection_name,
         category: s.category,
-        documentCount: s.documentCount,
-        lastIndexedAt: s.lastIndexedAt,
+        documentCount: s.document_count,
+        lastIndexedAt: s.last_indexed_at,
       }))
     }, { status: 200 });
 
