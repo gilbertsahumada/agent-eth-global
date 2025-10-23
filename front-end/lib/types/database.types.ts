@@ -14,6 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
+      hackathon_sponsors: {
+        Row: {
+          created_at: string
+          hackathon_id: string
+          id: string
+          prize_amount: number | null
+          sponsor_id: string
+          tier: string | null
+        }
+        Insert: {
+          created_at?: string
+          hackathon_id: string
+          id?: string
+          prize_amount?: number | null
+          sponsor_id: string
+          tier?: string | null
+        }
+        Update: {
+          created_at?: string
+          hackathon_id?: string
+          id?: string
+          prize_amount?: number | null
+          sponsor_id?: string
+          tier?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hackathon_sponsors_hackathon_id_hackathons_id_fk"
+            columns: ["hackathon_id"]
+            isOneToOne: false
+            referencedRelation: "hackathons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hackathon_sponsors_sponsor_id_sponsors_id_fk"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "sponsors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hackathons: {
+        Row: {
+          created_at: string
+          description: string | null
+          end_date: string | null
+          id: string
+          is_active: boolean
+          location: string | null
+          name: string
+          start_date: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          name: string
+          start_date?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          name?: string
+          start_date?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       project_documents: {
         Row: {
           content_preview: string | null
@@ -94,6 +175,95 @@ export type Database = {
           tags?: string[] | null
           tech_stack?: string[] | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      sponsor_documents: {
+        Row: {
+          content_preview: string | null
+          file_name: string
+          file_size: number | null
+          id: string
+          indexed_at: string
+          sponsor_id: string
+        }
+        Insert: {
+          content_preview?: string | null
+          file_name: string
+          file_size?: number | null
+          id?: string
+          indexed_at?: string
+          sponsor_id: string
+        }
+        Update: {
+          content_preview?: string | null
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          indexed_at?: string
+          sponsor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sponsor_documents_sponsor_id_sponsors_id_fk"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "sponsors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sponsors: {
+        Row: {
+          category: string | null
+          collection_name: string
+          created_at: string
+          description: string | null
+          doc_url: string | null
+          document_count: number | null
+          id: string
+          is_active: boolean
+          last_indexed_at: string | null
+          logo: string | null
+          name: string
+          tags: string[] | null
+          tech_stack: string[] | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          category?: string | null
+          collection_name: string
+          created_at?: string
+          description?: string | null
+          doc_url?: string | null
+          document_count?: number | null
+          id?: string
+          is_active?: boolean
+          last_indexed_at?: string | null
+          logo?: string | null
+          name: string
+          tags?: string[] | null
+          tech_stack?: string[] | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          category?: string | null
+          collection_name?: string
+          created_at?: string
+          description?: string | null
+          doc_url?: string | null
+          document_count?: number | null
+          id?: string
+          is_active?: boolean
+          last_indexed_at?: string | null
+          logo?: string | null
+          name?: string
+          tags?: string[] | null
+          tech_stack?: string[] | null
+          updated_at?: string
+          website?: string | null
         }
         Relationships: []
       }
