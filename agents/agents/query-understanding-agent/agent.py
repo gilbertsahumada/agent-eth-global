@@ -30,7 +30,8 @@ AGENT_NAME = "QueryUnderstandingAgent"
 agent = Agent(
     name=AGENT_NAME,
     port=8002,
-    endpoint=['http://localhost:8002/submit']  # Updated by Agentverse on deploy
+    #endpoint=['http://localhost:8002/submit'],  # Updated by Agentverse on deploy
+    mailbox=True,
 )
 
 class ProjectContext(Model):
