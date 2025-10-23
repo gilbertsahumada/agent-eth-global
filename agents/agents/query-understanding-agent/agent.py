@@ -31,8 +31,8 @@ agent = Agent(
     name=AGENT_NAME,
     port=8002,
     seed="query-understanding-agent-seed",
-    #endpoint=['http://localhost:8002/submit'],  # Updated by Agentverse on deploy
-    mailbox=True,
+    endpoint=['http://localhost:8002/submit'],  # Updated by Agentverse on deploy
+    #mailbox=True,
 )
 
 class ProjectContext(Model):
