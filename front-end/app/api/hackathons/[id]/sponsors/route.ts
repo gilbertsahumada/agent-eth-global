@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, schema } from "@/lib/db/client";
-import { eq, and } from "drizzle-orm";
+import { supabase } from "@/lib/supabase";
 
 // GET sponsors for a hackathon
 export async function GET(
@@ -11,24 +10,43 @@ export async function GET(
         const { id: hackathonId } = await params;
 
         // Get all sponsor relationships for this hackathon
-        const relationships = await db
-            .select({
-                id: schema.hackathonSponsors.id,
-                tier: schema.hackathonSponsors.tier,
-                prizeAmount: schema.hackathonSponsors.prizeAmount,
-                createdAt: schema.hackathonSponsors.createdAt,
-                sponsor: schema.sponsors
-            })
-            .from(schema.hackathonSponsors)
-            .innerJoin(
-                schema.sponsors,
-                eq(schema.hackathonSponsors.sponsorId, schema.sponsors.id)
-            )
-            .where(eq(schema.hackathonSponsors.hackathonId, hackathonId));
+        const { data: relationships, error } = await supabase
+            .from('hackathon_sponsors')
+            .select('id, tier, prize_amount, created_at, sponsors(*)')
+            .eq('hackathon_id', hackathonId);
+
+        if (error) {
+            throw error;
+        }
+
+        // Transform to camelCase
+        const transformedRelationships = relationships?.map(rel => ({
+            id: rel.id,
+            tier: rel.tier,
+            prizeAmount: rel.prize_amount,
+            createdAt: rel.created_at,
+            sponsors: rel.sponsors ? {
+                id: rel.sponsors.id,
+                name: rel.sponsors.name,
+                collectionName: rel.sponsors.collection_name,
+                description: rel.sponsors.description,
+                website: rel.sponsors.website,
+                logo: rel.sponsors.logo,
+                docUrl: rel.sponsors.doc_url,
+                techStack: rel.sponsors.tech_stack,
+                category: rel.sponsors.category,
+                tags: rel.sponsors.tags,
+                documentCount: rel.sponsors.document_count,
+                lastIndexedAt: rel.sponsors.last_indexed_at,
+                isActive: rel.sponsors.is_active,
+                createdAt: rel.sponsors.created_at,
+                updatedAt: rel.sponsors.updated_at,
+            } : null
+        })) || [];
 
         return NextResponse.json({
-            sponsors: relationships,
-            count: relationships.length
+            sponsors: transformedRelationships,
+            count: transformedRelationships.length
         }, { status: 200 });
 
     } catch (error) {
@@ -59,32 +77,37 @@ export async function POST(
         }
 
         // Check if relationship already exists
-        const existing = await db
-            .select()
-            .from(schema.hackathonSponsors)
-            .where(
-                and(
-                    eq(schema.hackathonSponsors.hackathonId, hackathonId),
-                    eq(schema.hackathonSponsors.sponsorId, sponsorId)
-                )
-            );
+        const { data: existing, error: checkError } = await supabase
+            .from('hackathon_sponsors')
+            .select('*')
+            .eq('hackathon_id', hackathonId)
+            .eq('sponsor_id', sponsorId);
 
-        if (existing.length > 0) {
+        if (checkError) {
+            throw checkError;
+        }
+
+        if (existing && existing.length > 0) {
             return NextResponse.json(
                 { error: "Sponsor already added to this hackathon" },
                 { status: 400 }
             );
         }
 
-        const [relationship] = await db
-            .insert(schema.hackathonSponsors)
-            .values({
-                hackathonId,
-                sponsorId,
+        const { data: relationship, error: insertError } = await supabase
+            .from('hackathon_sponsors')
+            .insert({
+                hackathon_id: hackathonId,
+                sponsor_id: sponsorId,
                 tier,
-                prizeAmount,
+                prize_amount: prizeAmount,
             })
-            .returning();
+            .select()
+            .single();
+
+        if (insertError) {
+            throw insertError;
+        }
 
         return NextResponse.json({
             message: "Sponsor added to hackathon successfully",
@@ -117,14 +140,15 @@ export async function DELETE(
             );
         }
 
-        await db
-            .delete(schema.hackathonSponsors)
-            .where(
-                and(
-                    eq(schema.hackathonSponsors.hackathonId, hackathonId),
-                    eq(schema.hackathonSponsors.sponsorId, sponsorId)
-                )
-            );
+        const { error } = await supabase
+            .from('hackathon_sponsors')
+            .delete()
+            .eq('hackathon_id', hackathonId)
+            .eq('sponsor_id', sponsorId);
+
+        if (error) {
+            throw error;
+        }
 
         return NextResponse.json({
             message: "Sponsor removed from hackathon successfully"

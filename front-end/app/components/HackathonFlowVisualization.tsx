@@ -206,26 +206,35 @@ export default function HackathonFlowVisualization() {
           },
         };
 
-        const sponsorNodes: Node[] = hackathonSponsors.map((rel: any, index: number) => ({
-          id: rel.sponsor.id,
-          type: 'sponsor',
-          position: { x: 500, y: 100 + index * 100 },
-          data: {
-            label: rel.sponsor.name,
-            category: rel.sponsor.category,
-            documentCount: rel.sponsor.documentCount,
-          },
-        }));
+        const sponsorNodes: Node[] = hackathonSponsors.map((rel: any, index: number) => {
+          // API returns transformed data with camelCase
+          const sponsor = rel.sponsors;
+          if (!sponsor) return null;
+
+          return {
+            id: sponsor.id,
+            type: 'sponsor',
+            position: { x: 500, y: 100 + index * 100 },
+            data: {
+              label: sponsor.name,
+              category: sponsor.category,
+              documentCount: sponsor.documentCount,
+            },
+          };
+        }).filter(Boolean) as Node[];
 
         // Create edges with status labels
         const newEdges: Edge[] = hackathonSponsors.map((rel: any) => {
-          const isIndexed = rel.sponsor.documentCount && rel.sponsor.documentCount > 0;
+          const sponsor = rel.sponsors;
+          if (!sponsor) return null;
+
+          const isIndexed = sponsor.documentCount && sponsor.documentCount > 0;
           const label = isIndexed ? (rel.tier || 'Partner') : 'Pending Indexing';
 
           return {
             id: rel.id,
             source: hackathon.id,
-            target: rel.sponsor.id,
+            target: sponsor.id,
             label,
             style: isIndexed ? {} : { stroke: '#dc2626' }, // red-600 for pending
             labelStyle: isIndexed
@@ -235,7 +244,7 @@ export default function HackathonFlowVisualization() {
               ? { fill: '#f3f4f6', fillOpacity: 0.9 }
               : { fill: '#fee2e2', fillOpacity: 0.95 }, // red-50 for pending
           };
-        });
+        }).filter(Boolean) as Edge[];
 
         setNodes([hackathonNode, ...sponsorNodes]);
         setEdges(newEdges);

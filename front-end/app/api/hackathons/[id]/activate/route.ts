@@ -8,8 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db, schema } from '@/lib/db/client';
-import { eq } from 'drizzle-orm';
+import { supabase } from '@/lib/supabase';
 
 export async function POST(
   req: NextRequest,
@@ -21,13 +20,13 @@ export async function POST(
     console.log(`[API /hackathons/${hackathonId}/activate] Setting as active hackathon`);
 
     // 1. Verify hackathon exists
-    const [hackathon] = await db
-      .select()
-      .from(schema.hackathons)
-      .where(eq(schema.hackathons.id, hackathonId))
-      .limit(1);
+    const { data: hackathon, error: findError } = await supabase
+      .from('hackathons')
+      .select('*')
+      .eq('id', hackathonId)
+      .single();
 
-    if (!hackathon) {
+    if (findError || !hackathon) {
       return NextResponse.json(
         { error: 'Hackathon not found' },
         { status: 404 }
@@ -35,25 +34,38 @@ export async function POST(
     }
 
     // 2. Deactivate all hackathons
-    await db
-      .update(schema.hackathons)
-      .set({ isActive: false });
+    const { error: deactivateError } = await supabase
+      .from('hackathons')
+      .update({ is_active: false })
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // Update all records
+
+    if (deactivateError) {
+      throw deactivateError;
+    }
 
     console.log(`[API /hackathons/${hackathonId}/activate] Deactivated all hackathons`);
 
     // 3. Activate this hackathon
-    await db
-      .update(schema.hackathons)
-      .set({ isActive: true })
-      .where(eq(schema.hackathons.id, hackathonId));
+    const { error: activateError } = await supabase
+      .from('hackathons')
+      .update({ is_active: true })
+      .eq('id', hackathonId);
+
+    if (activateError) {
+      throw activateError;
+    }
 
     console.log(`[API /hackathons/${hackathonId}/activate] Activated ${hackathon.name}`);
 
     // 4. Get sponsor count for this hackathon
-    const sponsorRelations = await db
-      .select()
-      .from(schema.hackathonSponsors)
-      .where(eq(schema.hackathonSponsors.hackathonId, hackathonId));
+    const { data: sponsorRelations, error: sponsorError } = await supabase
+      .from('hackathon_sponsors')
+      .select('*')
+      .eq('hackathon_id', hackathonId);
+
+    if (sponsorError) {
+      throw sponsorError;
+    }
 
     return NextResponse.json({
       success: true,
@@ -61,7 +73,7 @@ export async function POST(
         id: hackathon.id,
         name: hackathon.name,
         isActive: true,
-        sponsorCount: sponsorRelations.length,
+        sponsorCount: sponsorRelations?.length || 0,
       },
       message: `${hackathon.name} is now the active hackathon`
     }, { status: 200 });
