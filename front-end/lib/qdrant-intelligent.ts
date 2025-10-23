@@ -790,6 +790,168 @@ export class QdrantIntelligentService {
     }
   }
 
+  /**
+   * Search in a specific collection by name (generic, works with any collection)
+   * Use this for sponsor collections, custom collections, etc.
+   */
+  async searchInCollection(
+    collectionName: string,
+    query: string,
+    options: {
+      limit?: number;
+      filter?: {
+        chunkType?: ChunkType;
+        hasCode?: boolean;
+        codeLanguage?: string;
+        importance?: 'high' | 'medium' | 'low';
+      };
+    } = {}
+  ) {
+    const limit = options.limit || 5;
+
+    try {
+      // Check if collection exists
+      const collections = await this.client.getCollections();
+      const existingCollections = collections.collections.map(c => c.name);
+
+      if (!existingCollections.includes(collectionName)) {
+        console.log(`[INTELLIGENT] Collection ${collectionName} does not exist, returning empty results`);
+        return [];
+      }
+
+      const queryVector = await this.generateEmbedding(query);
+
+      // Build filter conditions
+      const filter: any = {};
+      if (options.filter) {
+        const must: any[] = [];
+
+        if (options.filter.chunkType) {
+          must.push({ key: 'type', match: { value: options.filter.chunkType } });
+        }
+        if (options.filter.hasCode !== undefined) {
+          must.push({ key: 'hasCode', match: { value: options.filter.hasCode } });
+        }
+        if (options.filter.codeLanguage) {
+          must.push({ key: 'codeLanguage', match: { value: options.filter.codeLanguage } });
+        }
+        if (options.filter.importance) {
+          must.push({ key: 'importance', match: { value: options.filter.importance } });
+        }
+
+        if (must.length > 0) {
+          filter.must = must;
+        }
+      }
+
+      const result = await this.client.search(collectionName, {
+        vector: queryVector,
+        limit,
+        filter: Object.keys(filter).length > 0 ? filter : undefined,
+        with_payload: true,
+      });
+
+      return result.map(point => ({
+        content: point.payload?.content,
+        type: point.payload?.type,
+        hierarchy: point.payload?.hierarchy,
+        language: point.payload?.language,
+        section: point.payload?.section,
+        hasCode: point.payload?.hasCode,
+        keywords: point.payload?.keywords,
+        importance: point.payload?.importance,
+        score: point.score,
+        metadata: {
+          entityId: point.payload?.entityId, // Generic ID (projectId, sponsorId, etc.)
+          fileName: point.payload?.fileName,
+          frontmatter: point.payload?.frontmatter,
+        }
+      }));
+    } catch (error) {
+      console.error(`[INTELLIGENT] Search in ${collectionName} failed:`, error);
+      // Return empty array instead of throwing, for resilience
+      return [];
+    }
+  }
+
+  /**
+   * Search across multiple collections in parallel (optimized for multiple sponsors/projects)
+   * Returns combined results sorted by relevance score
+   */
+  async searchMultipleCollections(
+    collectionNames: string[],
+    query: string,
+    options: {
+      limit?: number;
+      filter?: {
+        chunkType?: ChunkType;
+        hasCode?: boolean;
+        codeLanguage?: string;
+        importance?: 'high' | 'medium' | 'low';
+      };
+    } = {}
+  ): Promise<Array<{
+    content: any;
+    type: any;
+    hierarchy: any;
+    language: any;
+    section: any;
+    hasCode: any;
+    keywords: any;
+    importance: any;
+    score: any;
+    collectionName: string; // Added to identify source
+    metadata: {
+      entityId: any;
+      fileName: any;
+      frontmatter: any;
+    };
+  }>> {
+    const totalLimit = options.limit || 10;
+    const perCollectionLimit = Math.ceil(totalLimit * 1.5 / collectionNames.length); // Over-fetch for better results
+
+    console.log(`[INTELLIGENT] Searching in ${collectionNames.length} collections in parallel`);
+    console.log(`[INTELLIGENT] Per-collection limit: ${perCollectionLimit}, total limit: ${totalLimit}`);
+
+    // Search all collections in parallel
+    const searchPromises = collectionNames.map(collectionName =>
+      this.searchInCollection(collectionName, query, {
+        ...options,
+        limit: perCollectionLimit
+      })
+      .then(results =>
+        // Add collectionName to each result
+        results.map(r => ({ ...r, collectionName }))
+      )
+      .catch(err => {
+        console.error(`[INTELLIGENT] Error searching ${collectionName}:`, err);
+        return []; // Resilient: continue with other collections
+      })
+    );
+
+    try {
+      const resultsArrays = await Promise.all(searchPromises);
+
+      // Flatten and combine all results
+      const allResults = resultsArrays.flat();
+
+      console.log(`[INTELLIGENT] Total results before filtering: ${allResults.length}`);
+
+      // Sort by relevance score (descending)
+      allResults.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+      // Return top N results
+      const topResults = allResults.slice(0, totalLimit);
+
+      console.log(`[INTELLIGENT] Returning top ${topResults.length} results`);
+
+      return topResults;
+    } catch (error) {
+      console.error(`[INTELLIGENT] Error in searchMultipleCollections:`, error);
+      return [];
+    }
+  }
+
   private async generateEmbedding(text: string): Promise<number[]> {
     const response = await this.openai.embeddings.create({
       model: "text-embedding-3-small",

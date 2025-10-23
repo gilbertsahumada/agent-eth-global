@@ -29,6 +29,7 @@ interface Hackathon {
   location: string | null;
   startDate: Date | null;
   endDate: Date | null;
+  isActive: boolean;
 }
 
 interface Sponsor {
@@ -46,10 +47,12 @@ export default function HackathonFlowVisualization() {
 
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [selectedHackathon, setSelectedHackathon] = useState<string | null>(null);
+  const [activeHackathonId, setActiveHackathonId] = useState<string | null>(null);
   const [allSponsors, setAllSponsors] = useState<Sponsor[]>([]);
   const [showAddSponsor, setShowAddSponsor] = useState(false);
   const [selectedSponsorToAdd, setSelectedSponsorToAdd] = useState<string>('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [activatingHackathon, setActivatingHackathon] = useState(false);
 
   // Handle edge deletion
   const onEdgesDelete = useCallback(
@@ -144,6 +147,12 @@ export default function HackathonFlowVisualization() {
 
         setHackathons(hackathonsData.hackathons || []);
         setAllSponsors(sponsorsData.sponsors || []);
+
+        // Find and set active hackathon
+        const activeHackathon = hackathonsData.hackathons?.find((h: Hackathon) => h.isActive);
+        if (activeHackathon) {
+          setActiveHackathonId(activeHackathon.id);
+        }
 
         // Auto-select first hackathon if available
         if (hackathonsData.hackathons && hackathonsData.hackathons.length > 0) {
@@ -268,6 +277,38 @@ export default function HackathonFlowVisualization() {
     }
   };
 
+  const handleSetActive = async (hackathonId: string) => {
+    setActivatingHackathon(true);
+    try {
+      const response = await fetch(`/api/hackathons/${hackathonId}/activate`, {
+        method: 'POST'
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to activate hackathon');
+      }
+
+      // Update active hackathon ID
+      setActiveHackathonId(hackathonId);
+
+      // Update local hackathons state to reflect the change
+      setHackathons(prev => prev.map(h => ({
+        ...h,
+        isActive: h.id === hackathonId
+      })));
+
+      // Show success message
+      const hackathon = hackathons.find(h => h.id === hackathonId);
+      alert(`✓ ${hackathon?.name} is now the active hackathon for agent queries`);
+    } catch (error) {
+      console.error('Error activating hackathon:', error);
+      alert(`Failed to activate hackathon: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setActivatingHackathon(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full min-h-[360px]">
@@ -302,7 +343,7 @@ export default function HackathonFlowVisualization() {
         <h2 className="text-lg font-semibold text-slate-900 tracking-tight mb-4">ETH Global Hackathons</h2>
 
         {/* Hackathon Selector */}
-        <div className="mb-4">
+        <div className="mb-4 space-y-2">
           <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
             Select Hackathon
           </label>
@@ -314,10 +355,30 @@ export default function HackathonFlowVisualization() {
             <option value="">-- Select a hackathon --</option>
             {hackathons.map((h) => (
               <option key={h.id} value={h.id}>
-                {h.name}
+                {h.name} {h.isActive ? '✓ Active' : ''}
               </option>
             ))}
           </select>
+
+          {/* Set Active Button */}
+          {selectedHackathon && selectedHackathon !== activeHackathonId && (
+            <button
+              onClick={() => handleSetActive(selectedHackathon)}
+              disabled={activatingHackathon}
+              className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {activatingHackathon ? 'Setting as Active...' : 'Set as Active Hackathon'}
+            </button>
+          )}
+
+          {selectedHackathon && selectedHackathon === activeHackathonId && (
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
+              <svg className="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="font-medium text-emerald-900">Active for Agent Queries</span>
+            </div>
+          )}
         </div>
 
         {selectedHackathon && (

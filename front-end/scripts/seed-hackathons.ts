@@ -4,6 +4,11 @@ async function seedHackathons() {
   console.log('🌱 Seeding hackathons...');
 
   try {
+    // First, delete all existing hackathons
+    console.log('🗑️  Deleting existing hackathons...');
+    await db.delete(schema.hackathons);
+    console.log('✅ Existing hackathons deleted');
+
     // Insert hackathons
     const hackathons = await db.insert(schema.hackathons).values([
       {
@@ -13,7 +18,7 @@ async function seedHackathons() {
         endDate: new Date('2024-09-29'),
         description: 'Join developers from around the world in this virtual hackathon. Build innovative blockchain solutions and compete for prizes.',
         website: 'https://ethglobal.com/events/online',
-        isActive: true,
+        isActive: true, // Set as active by default
       },
       {
         name: 'ETH Global Buenos Aires',
@@ -22,7 +27,7 @@ async function seedHackathons() {
         endDate: new Date('2024-11-03'),
         description: 'Experience the vibrant blockchain community in Buenos Aires. Network, learn, and build with top developers in Latin America.',
         website: 'https://ethglobal.com/events/buenosaires',
-        isActive: true,
+        isActive: false, // Not active initially
       },
     ]).returning();
 
