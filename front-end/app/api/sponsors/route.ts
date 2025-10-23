@@ -9,14 +9,10 @@ export async function GET(req: NextRequest) {
         const searchParams = req.nextUrl.searchParams;
         const includeInactive = searchParams.get('includeInactive') === 'true';
 
-        let query = db.select().from(schema.sponsors);
-
         // By default, only return active sponsors
-        if (!includeInactive) {
-            query = query.where(eq(schema.sponsors.isActive, true));
-        }
-
-        const sponsors = await query;
+        const sponsors = includeInactive 
+            ? await db.select().from(schema.sponsors)
+            : await db.select().from(schema.sponsors).where(eq(schema.sponsors.isActive, true));
 
         return NextResponse.json({
             sponsors,
