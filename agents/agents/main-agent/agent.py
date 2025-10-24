@@ -184,11 +184,36 @@ Ready to upload some docs? Head to the main page and let's get building! 🚀"""
             response.raise_for_status()
             data = response.json()
 
+            # Check for NO_ACTIVE_HACKATHON error
+            if data.get("error") == "NO_ACTIVE_HACKATHON":
+                ctx.logger.warning(f"⚠️ No active hackathon configured")
+                no_hackathon_msg = ChatMessage(
+                    timestamp=datetime.now(timezone.utc),
+                    msg_id=msg.msg_id,
+                    content=[
+                        TextContent(text="""👋 Hi! I'm your hackathon AI assistant.
+
+📢 **No Active Hackathon Selected**
+It looks like no hackathon has been set as active yet. Please ask an organizer to:
+1. Go to the Hackathons page
+2. Select a hackathon
+3. Click "Set as Active Hackathon"
+
+Once a hackathon is active, I'll be able to search through the documentation of all its sponsors and help you build! 🚀
+
+Need help with something else? Feel free to ask!"""),
+                        EndSessionContent()
+                    ]
+                )
+                await ctx.send(sender, no_hackathon_msg)
+                return
+
             ctx.logger.info(f"🔍 Smart Search Response:")
             ctx.logger.info(f"   - Total results: {data.get('totalResults', 0)}")
-            ctx.logger.info(f"   - Projects searched: {data.get('projectsSearched', 0)}")
+            ctx.logger.info(f"   - Sponsors searched: {data.get('sponsorsSearched', 0)}")
             ctx.logger.info(f"   - Query intent: {data.get('queryIntent', {})}")
             ctx.logger.info(f"   - Applied filters: {data.get('appliedFilters', {})}")
+            ctx.logger.info(f"   - Hackathon: {data.get('hackathon', {}).get('name', 'Unknown')}")
 
             # Extract results (already ranked by relevance and filtered by ASI1)
             all_chunks = data.get("results", [])
@@ -204,10 +229,35 @@ Ready to upload some docs? Head to the main page and let's get building! 🚀"""
             all_chunks = []
 
         if not all_chunks:
-            # En lugar de decir "no encontré nada", ofrece ayuda con lo disponible
-            project_list = "\n".join([f"• {p.get('name', 'Unknown')}: {p.get('description', 'No description')}" for p in projects])
-            
-            helpful_response = f"""I couldn't find specific information about '{query}' in my indexed documentation.
+            # Show available sponsors from active hackathon
+            hackathon_info = data.get('hackathon', {})
+            sponsor_names = data.get('sponsorNames', [])
+
+            if sponsor_names:
+                sponsor_list = "\n".join([f"• {name}" for name in sponsor_names])
+                helpful_response = f"""I couldn't find specific information about '{query}' in the indexed documentation.
+
+However, the current hackathon **{hackathon_info.get('name', 'Active Hackathon')}** has documentation for these sponsors:
+
+{sponsor_list}
+
+💡 **How I can help:**
+- Ask me how to implement any of these sponsor technologies
+- Request code examples or integration guides
+- Get step-by-step deployment instructions
+- Learn about smart contract interactions
+- Understand API usage patterns
+
+**Example questions:**
+- "How do I use [sponsor name]?"
+- "Show me an example of [specific feature]"
+- "What are the requirements for [sponsor name]?"
+
+What would you like to know about any of these sponsors?"""
+            else:
+                # Fallback to projects if no sponsors available
+                project_list = "\n".join([f"• {p.get('name', 'Unknown')}: {p.get('description', 'No description')}" for p in projects])
+                helpful_response = f"""I couldn't find specific information about '{query}' in my indexed documentation.
 
 However, I have documentation for the following projects that might help you in this hackathon:
 
@@ -216,14 +266,6 @@ However, I have documentation for the following projects that might help you in 
 💡 **How I can help:**
 - Ask me how to implement any of these technologies
 - Request code examples or integration guides
-- Get step-by-step deployment instructions
-- Learn about smart contract interactions
-- Understand API usage patterns
-
-**Example questions:**
-- "How do I use [technology name]?"
-- "Show me an example of [specific feature]"
-- "What are the requirements for [project name]?"
 
 What would you like to know about any of these projects?"""
             
@@ -249,7 +291,7 @@ What would you like to know about any of these projects?"""
 
         # Preparar contexto para el LLM
         context_docs = "\n\n".join([
-            f"[{c.get('project_name', 'Unknown')}]\n{c['content']}"
+            f"[{c.get('sponsorName', 'Unknown')}]\n{c['content']}"
             for c in top_chunks
         ])
 

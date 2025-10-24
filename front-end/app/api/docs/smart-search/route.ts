@@ -20,10 +20,19 @@ import { analyzeQuery } from "@/lib/agents/query-agent-client";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    console.log('[SmartSearch] Received request body:', JSON.stringify(body));
+
     const { query, limit = 10, includeInactive = false } = body;
 
     // Validation
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
+      console.error('[SmartSearch] Validation failed - Invalid query:', {
+        query,
+        type: typeof query,
+        isEmpty: !query,
+        isString: typeof query === 'string',
+        trimmedLength: query ? query.trim().length : 0
+      });
       return NextResponse.json(
         { error: "query is required and must be a non-empty string" },
         { status: 400 }
@@ -31,6 +40,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (typeof limit !== 'number' || limit < 1 || limit > 50) {
+      console.error('[SmartSearch] Validation failed - Invalid limit:', {
+        limit,
+        type: typeof limit,
+        isNumber: typeof limit === 'number',
+        value: limit
+      });
       return NextResponse.json(
         { error: "limit must be a number between 1 and 50" },
         { status: 400 }
