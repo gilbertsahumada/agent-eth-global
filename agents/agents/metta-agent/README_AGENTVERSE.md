@@ -9,32 +9,32 @@ A specialized reasoning agent that provides symbolic analysis using MeTTa (Meta 
 
 ## Features
 
-- 🔮 **MeTTa Symbolic Reasoning**: Uses hyperon library for advanced symbolic analysis
-- 🔗 **Dependency Detection**: Identifies dependencies between code snippets and documentation
-- 📋 **Execution Order Inference**: Determines logical execution sequences from documentation
-- ⚠️ **Conflict Identification**: Detects contradictions or conflicts in provided context
-- 🎯 **Context-Aware Analysis**: Processes queries with relevant documentation chunks
-- 💬 **Chat Protocol Integration**: Seamless communication with other agents
+- **MeTTa Symbolic Reasoning**: Uses hyperon library for advanced symbolic analysis
+- **Dependency Detection**: Identifies dependencies between code snippets and documentation
+- **Execution Order Inference**: Determines logical execution sequences from documentation
+- **Conflict Identification**: Detects contradictions or conflicts in provided context
+- **Context-Aware Analysis**: Processes queries with relevant documentation chunks
+- **Chat Protocol Integration**: Seamless communication with other agents
 
 ## Example Input
 
 ```python
 ChatMessage(
-    content=[
-        TextContent(text="""REASONING_REQUEST:abc-123-def:{
-            "query": "How do I deploy a Solidity contract with Hardhat?",
-            "chunks": [
-                {
-                    "text": "Initialize your Hardhat project with npx hardhat init",
-                    "metadata": {"project_id": "hardhat-docs", "section": "setup"}
-                },
-                {
-                    "text": "Deploy contracts using npx hardhat run scripts/deploy.js",
-                    "metadata": {"project_id": "hardhat-docs", "section": "deployment"}
-                }
-            ]
-        }""")
-    ]
+ content=[
+ TextContent(text="""REASONING_REQUEST:abc-123-def:{
+ "query": "How do I deploy a Solidity contract with Hardhat?",
+ "chunks": [
+ {
+ "text": "Initialize your Hardhat project with npx hardhat init",
+ "metadata": {"project_id": "hardhat-docs", "section": "setup"}
+ },
+ {
+ "text": "Deploy contracts using npx hardhat run scripts/deploy.js",
+ "metadata": {"project_id": "hardhat-docs", "section": "deployment"}
+ }
+ ]
+ }""")
+ ]
 )
 ```
 
@@ -42,26 +42,26 @@ ChatMessage(
 
 ```python
 ChatMessage(
-    content=[
-        TextContent(text="""REASONING_RESPONSE:abc-123-def:
-📋 Execution Order:
+ content=[
+ TextContent(text="""REASONING_RESPONSE:abc-123-def:
+ Execution Order:
 1. Initialize Hardhat project (npx hardhat init)
 2. Create deployment script
 3. Deploy contracts (npx hardhat run scripts/deploy.js)
 
-🔗 Dependencies Detected:
+ Dependencies Detected:
 - Deployment requires: Project initialization, deployment script creation
 - Prerequisites: Node.js, npm installed
 
-⚠️ Potential Issues:
+ Potential Issues:
 - None detected
 
-💡 Recommendations:
+ Recommendations:
 - Follow setup steps sequentially
 - Verify Node.js installation before starting
-        """),
-        EndSessionContent()
-    ]
+ """),
+ EndSessionContent()
+ ]
 )
 ```
 
@@ -77,13 +77,13 @@ REASONING_REQUEST:<session_id>:<json_data>
 Where `json_data` contains:
 ```json
 {
-    "query": "User's question",
-    "chunks": [
-        {
-            "text": "Documentation content",
-            "metadata": {"project_id": "...", "section": "..."}
-        }
-    ]
+ "query": "User's question",
+ "chunks": [
+ {
+ "text": "Documentation content",
+ "metadata": {"project_id": "...", "section": "..."}
+ }
+ ]
 }
 ```
 
@@ -93,10 +93,10 @@ REASONING_RESPONSE:<session_id>:<reasoning_result>
 ```
 
 The `reasoning_result` includes:
-- 📋 Execution order of steps
-- 🔗 Detected dependencies
-- ⚠️ Potential conflicts or issues
-- 💡 Recommendations
+- Execution order of steps
+- Detected dependencies
+- Potential conflicts or issues
+- Recommendations
 
 ## Usage Example
 
@@ -105,9 +105,9 @@ This agent is designed to be called by other agents (like the main documentation
 ```python
 from uagents import Agent, Context
 from uagents_core.contrib.protocols.chat import (
-    ChatMessage,
-    TextContent,
-    chat_protocol_spec
+ ChatMessage,
+ TextContent,
+ chat_protocol_spec
 )
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -122,68 +122,68 @@ metta_responses = {}
 
 @agent.on_event("startup")
 async def send_reasoning_request(ctx: Context):
-    # Prepare reasoning request
-    session_id = str(uuid4())
-    reasoning_data = {
-        "query": "How to deploy a smart contract?",
-        "chunks": [
-            {
-                "text": "First, compile your contracts",
-                "metadata": {"project_id": "docs", "section": "compile"}
-            },
-            {
-                "text": "Then deploy using deployment script",
-                "metadata": {"project_id": "docs", "section": "deploy"}
-            }
-        ]
-    }
+ # Prepare reasoning request
+ session_id = str(uuid4())
+ reasoning_data = {
+ "query": "How to deploy a smart contract?",
+ "chunks": [
+ {
+ "text": "First, compile your contracts",
+ "metadata": {"project_id": "docs", "section": "compile"}
+ },
+ {
+ "text": "Then deploy using deployment script",
+ "metadata": {"project_id": "docs", "section": "deploy"}
+ }
+ ]
+ }
 
-    # Create request message
-    request_text = f"REASONING_REQUEST:{session_id}:{json.dumps(reasoning_data)}"
-    request_msg = ChatMessage(
-        timestamp=datetime.now(timezone.utc),
-        msg_id=uuid4(),
-        content=[TextContent(text=request_text)]
-    )
+ # Create request message
+ request_text = f"REASONING_REQUEST:{session_id}:{json.dumps(reasoning_data)}"
+ request_msg = ChatMessage(
+ timestamp=datetime.now(timezone.utc),
+ msg_id=uuid4(),
+ content=[TextContent(text=request_text)]
+ )
 
-    await ctx.send(METTA_AGENT_ADDRESS, request_msg)
-    ctx.logger.info(f"Sent reasoning request with session: {session_id}")
+ await ctx.send(METTA_AGENT_ADDRESS, request_msg)
+ ctx.logger.info(f"Sent reasoning request with session: {session_id}")
 
 @agent.on_message(ChatMessage)
 async def handle_response(ctx: Context, sender: str, msg: ChatMessage):
-    if sender == METTA_AGENT_ADDRESS:
-        # Extract response text
-        response_text = ""
-        for item in msg.content:
-            if isinstance(item, TextContent):
-                response_text += item.text
+ if sender == METTA_AGENT_ADDRESS:
+ # Extract response text
+ response_text = ""
+ for item in msg.content:
+ if isinstance(item, TextContent):
+ response_text += item.text
 
-        # Parse response
-        if response_text.startswith("REASONING_RESPONSE:"):
-            parts = response_text.split(":", 2)
-            session_id = parts[1]
-            reasoning = parts[2]
+ # Parse response
+ if response_text.startswith("REASONING_RESPONSE:"):
+ parts = response_text.split(":", 2)
+ session_id = parts[1]
+ reasoning = parts[2]
 
-            ctx.logger.info(f"Received reasoning for session {session_id}")
-            ctx.logger.info(f"Reasoning:\n{reasoning}")
+ ctx.logger.info(f"Received reasoning for session {session_id}")
+ ctx.logger.info(f"Reasoning:\n{reasoning}")
 
-            # Store response
-            metta_responses[session_id] = reasoning
+ # Store response
+ metta_responses[session_id] = reasoning
 
 if __name__ == "__main__":
-    agent.run()
+ agent.run()
 ```
 
 ## Architecture
 
 ```
 Documentation Assistant → MeTTa Agent
-                ↓
-        [Symbolic Analysis]
-                ↓
-    Execution Order + Dependencies + Conflicts
-                ↓
-        Enhanced Response
+ ↓
+ [Symbolic Analysis]
+ ↓
+ Execution Order + Dependencies + Conflicts
+ ↓
+ Enhanced Response
 ```
 
 ## MeTTa Reasoning Process
@@ -204,11 +204,11 @@ Documentation Assistant → MeTTa Agent
 ## Use Cases
 
 Perfect for:
-- 🎯 **Enhanced Documentation Search**: Add symbolic reasoning to search results
-- 📚 **Tutorial Generation**: Create step-by-step guides from documentation
-- 🔧 **Troubleshooting**: Identify potential issues in implementation steps
-- 💡 **Best Practices**: Infer recommended execution patterns
-- 🏆 **Hackathon Assistance**: Provide structured guidance for rapid development
+- **Enhanced Documentation Search**: Add symbolic reasoning to search results
+- **Tutorial Generation**: Create step-by-step guides from documentation
+- **Troubleshooting**: Identify potential issues in implementation steps
+- **Best Practices**: Infer recommended execution patterns
+- **Hackathon Assistance**: Provide structured guidance for rapid development
 
 ## Limitations
 
@@ -239,10 +239,10 @@ The agent handles errors gracefully:
 
 ## Privacy & Security
 
-- ✅ Processes only provided documentation context
-- ✅ No external API calls or data storage
-- ✅ Session-based processing (no persistent history)
-- ✅ Isolated execution per request
+- Processes only provided documentation context
+- No external API calls or data storage
+- Session-based processing (no persistent history)
+- Isolated execution per request
 
 ## Response Timing
 

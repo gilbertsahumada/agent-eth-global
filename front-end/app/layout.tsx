@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Agent RAG - Documentation Indexer",
+  title: "ETH Global Agent RAG - Documentation Indexer",
   description: "RAG-powered documentation indexing and search system",
 };
 

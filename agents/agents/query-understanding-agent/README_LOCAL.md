@@ -1,6 +1,13 @@
-# Query Understanding Agent - Local Development
+# Query Understanding Agent
 
-## 🚀 Quick Start
+## 📍 Production Deployment
+
+This agent is deployed on Render at:
+- **URL**: `https://agent-eth-global.onrender.com/understand`
+- **Method**: POST
+- **Content-Type**: application/json
+
+## 🚀 Local Development
 
 ### 1. Install Dependencies
 
@@ -19,7 +26,7 @@ cp .env.example .env
 # ASI1_API_KEY=your_actual_key_here
 ```
 
-### 3. Run the Agent
+### 3. Run the Agent Locally
 
 ```bash
 python agent.py
@@ -62,13 +69,37 @@ curl -X POST http://localhost:8002/understand \
 }
 ```
 
-## 🔧 Configuring Next.js to Use Local Agent
+## 🔧 Configuring Next.js
+
+### For Production (Render):
+
+In your `front-end/.env.local`, set:
+
+```bash
+QUERY_AGENT_URL=https://agent-eth-global.onrender.com/understand
+```
+
+### For Local Development:
 
 In your `front-end/.env.local`, set:
 
 ```bash
 QUERY_AGENT_URL=http://localhost:8002/understand
 ```
+
+## 🌐 Deploying to Render
+
+This agent is currently deployed on Render. To deploy your own instance:
+
+1. **Create a new Web Service on Render**
+2. **Connect your GitHub repository**
+3. **Configure Build & Start Commands**:
+   - **Build Command**: `cd agents/agents/query-understanding-agent && pip install -r requirements.txt`
+   - **Start Command**: `cd agents/agents/query-understanding-agent && python agent.py`
+4. **Add Environment Variables**:
+   - `ASI1_API_KEY`: Your ASI1 API key
+   - `PORT`: 8002 (or Render's default $PORT)
+5. **Deploy**: Render will automatically deploy on push to main branch
 
 ## 📊 Logs
 
