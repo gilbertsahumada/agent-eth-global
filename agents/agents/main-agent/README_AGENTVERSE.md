@@ -9,19 +9,21 @@ An AI-powered documentation assistant specialized in blockchain technologies and
 
 ## Features
 
-- 📚 **Multi-Project Documentation Search**: Searches across multiple indexed blockchain projects simultaneously
-- 🧠 **ASI-1 LLM Integration**: Generates intelligent responses based on official documentation
-- 🔮 **MeTTa Symbolic Reasoning** (Optional): Provides dependency detection, execution order inference, and conflict identification
-- 💬 **Conversation Memory**: Maintains context across multiple messages for coherent interactions
-- ⚡ **Optimized Performance**: Configurable MeTTa reasoning for faster responses when needed
+- **Hackathon-Aware Documentation Search**: Automatically searches sponsors of the active hackathon
+- **Multi-Sponsor Search**: Searches across all sponsors assigned to the current hackathon
+- **ASI-1 LLM Integration**: Generates intelligent responses based on official sponsor documentation
+- **MeTTa Symbolic Reasoning** (Optional): Provides dependency detection, execution order inference, and conflict identification
+- **Conversation Memory**: Maintains context across multiple messages for coherent interactions
+- **Optimized Performance**: Configurable MeTTa reasoning for faster responses when needed
+- **Transparent Filtering**: No need to specify which hackathon - uses the active one automatically
 
 ## Example Input
 
 ```python
 ChatMessage(
-    content=[
-        TextContent(text="How do I deploy a Solidity contract with Hardhat?")
-    ]
+ content=[
+ TextContent(text="How do I deploy a Solidity contract with Hardhat?")
+ ]
 )
 ```
 
@@ -29,44 +31,44 @@ ChatMessage(
 
 ```python
 ChatMessage(
-    content=[
-        TextContent(text="""
+ content=[
+ TextContent(text="""
 To deploy a Solidity contract with Hardhat, follow these steps:
 
 1. **Install Hardhat**
-   ```bash
-   npm install --save-dev hardhat
-   ```
+ ```bash
+ npm install --save-dev hardhat
+ ```
 
 2. **Initialize your project**
-   ```bash
-   npx hardhat init
-   ```
+ ```bash
+ npx hardhat init
+ ```
 
 3. **Create your deployment script** in `scripts/deploy.js`:
-   ```javascript
-   async function main() {
-     const Contract = await ethers.getContractFactory("YourContract");
-     const contract = await Contract.deploy();
-     await contract.deployed();
-     console.log("Contract deployed to:", contract.address);
-   }
-   main();
-   ```
+ ```javascript
+ async function main() {
+ const Contract = await ethers.getContractFactory("YourContract");
+ const contract = await Contract.deploy();
+ await contract.deployed();
+ console.log("Contract deployed to:", contract.address);
+ }
+ main();
+ ```
 
 4. **Deploy to network**
-   ```bash
-   npx hardhat run scripts/deploy.js --network localhost
-   ```
+ ```bash
+ npx hardhat run scripts/deploy.js --network localhost
+ ```
 
 **Prerequisites:** Node.js, npm installed
 **Source:** hardhat-docs
 
 ```
-Happy building! 🚀
-        """),
-        EndSessionContent()
-    ]
+Happy building! 
+ """),
+ EndSessionContent()
+ ]
 )
 ```
 
@@ -77,11 +79,11 @@ Copy and paste the following code into a new [Blank agent](https://agentverse.ai
 ```python
 from uagents import Agent, Context
 from uagents_core.contrib.protocols.chat import (
-    ChatMessage,
-    ChatAcknowledgement,
-    TextContent,
-    EndSessionContent,
-    chat_protocol_spec
+ ChatMessage,
+ ChatAcknowledgement,
+ TextContent,
+ EndSessionContent,
+ chat_protocol_spec
 )
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -92,65 +94,72 @@ ASSISTANT_AGENT_ADDRESS = "{{ .Agent.Address }}"
 
 @agent.on_event("startup")
 async def send_message(ctx: Context):
-    # Send a query to the assistant
-    query = ChatMessage(
-        timestamp=datetime.now(timezone.utc),
-        msg_id=uuid4(),
-        content=[
-            TextContent(text="How do I deploy a Solidity contract with Hardhat?")
-        ]
-    )
-    await ctx.send(ASSISTANT_AGENT_ADDRESS, query)
-    ctx.logger.info("Query sent to assistant")
+ # Send a query to the assistant
+ query = ChatMessage(
+ timestamp=datetime.now(timezone.utc),
+ msg_id=uuid4(),
+ content=[
+ TextContent(text="How do I deploy a Solidity contract with Hardhat?")
+ ]
+ )
+ await ctx.send(ASSISTANT_AGENT_ADDRESS, query)
+ ctx.logger.info("Query sent to assistant")
 
 @agent.on_message(ChatMessage)
 async def handle_response(ctx: Context, sender: str, msg: ChatMessage):
-    # Extract response text
-    response_text = ""
-    for item in msg.content:
-        if isinstance(item, TextContent):
-            response_text += item.text
+ # Extract response text
+ response_text = ""
+ for item in msg.content:
+ if isinstance(item, TextContent):
+ response_text += item.text
 
-    ctx.logger.info(f"Received response: {response_text[:200]}...")
+ ctx.logger.info(f"Received response: {response_text[:200]}...")
 
 @agent.on_message(ChatAcknowledgement)
 async def handle_ack(ctx: Context, sender: str, msg: ChatAcknowledgement):
-    ctx.logger.info(f"Message acknowledged by {sender}")
+ ctx.logger.info(f"Message acknowledged by {sender}")
 
 if __name__ == "__main__":
-    agent.run()
+ agent.run()
 ```
 
 ### Local Agent
 
 1. Install the necessary packages:
 
-   ```bash
-   pip install uagents uagents_core
-   ```
+ ```bash
+ pip install uagents uagents_core
+ ```
 
 2. To interact with this agent from a local agent instead, replace `agent = Agent(name="user")` with:
 
-   ```python
-   agent = Agent(
-       name="user",
-       endpoint="http://localhost:8000/submit",
-   )
-   ```
+ ```python
+ agent = Agent(
+ name="user",
+ endpoint="http://localhost:8000/submit",
+ )
+ ```
 
 3. Run the agent:
-   ```bash
-   python agent.py
-   ```
+ ```bash
+ python agent.py
+ ```
 
-## Indexed Technologies
+## How It Works
 
-The agent currently has documentation for:
+The agent searches through documentation of sponsors assigned to the currently **active hackathon**:
+
+1. **Active Hackathon Selection**: An organizer sets which hackathon is active
+2. **Sponsor Documentation**: Each hackathon has assigned sponsors with indexed documentation
+3. **Transparent Search**: Agent automatically queries only the active hackathon's sponsors
+4. **Smart Filtering**: Uses ASI1-powered query understanding to find relevant information
+
+Example sponsors that can be indexed:
 - Smart contract frameworks (Hardhat, Truffle, Foundry)
 - Blockchain protocols (Chainlink, The Graph, Polygon)
-- DeFi protocols
-- NFT standards
-- And more...
+- DeFi protocols and platforms
+- NFT standards and marketplaces
+- Layer 2 solutions
 
 ## Performance Settings
 
@@ -160,25 +169,35 @@ The agent currently has documentation for:
 ## Response Format
 
 Responses include:
-- ✅ Step-by-step instructions
-- ✅ Code examples with syntax highlighting
-- ✅ Prerequisites and dependencies
-- ✅ Source project citations
-- ✅ Troubleshooting tips
+- Step-by-step instructions
+- Code examples with syntax highlighting
+- Prerequisites and dependencies
+- Source project citations
+- Troubleshooting tips
 
 ## Use Cases
 
 Perfect for:
-- 🏆 Hackathon participants needing quick implementation guidance
-- 📖 Developers learning new blockchain technologies
-- 🔧 Debugging and troubleshooting smart contracts
-- 💡 Exploring best practices and patterns
+- Hackathon participants needing quick implementation guidance
+- Developers learning new blockchain technologies
+- Debugging and troubleshooting smart contracts
+- Exploring best practices and patterns
 
 ## Architecture
 
 ```
-User Query → Documentation Search → Context Retrieval → [Optional: MeTTa Reasoning] → ASI-1 LLM → Response
+User Query → Active Hackathon Lookup → Sponsor Documentation Search →
+Context Retrieval → [Optional: MeTTa Reasoning] → ASI-1 LLM → Response
 ```
+
+**Smart Search Flow:**
+1. User asks a question
+2. System identifies active hackathon
+3. Gets list of sponsors for that hackathon
+4. Searches sponsor documentation in parallel
+5. Ranks results by relevance
+6. (Optional) MeTTa agent provides symbolic reasoning
+7. ASI-1 LLM generates comprehensive response
 
 ## Limitations
 
