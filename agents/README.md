@@ -2,49 +2,74 @@
 
 Multi-agent AI system for hackathon documentation assistance using ASI-1 LLM and MeTTa symbolic reasoning.
 
+## Deployment URLs & Addresses
+
+| Component | Deployment | Production URL | Agent Address | Agentverse Profile |
+|-----------|------------|----------------|---------------|-------------------|
+| **Front-end** | Vercel | https://agent-eth-global.vercel.app | - | - |
+| **query-understanding-agent** | Render | https://agent-eth-global.onrender.com/understand | `agent1qfmp9p3pu30dytavsv874nlthn7rstgpqjmvpld0jh6nsduydqxpqqqkynr` | [View Profile](https://agentverse.ai/agents/details/agent1qfmp9p3pu30dytavsv874nlthn7rstgpqjmvpld0jh6nsduydqxpqqqkynr/profile) |
+| **metadata-extractor-agent** | Local | http://localhost:8001/analyze | - | - |
+| **main-agent** | Agentverse | Chat Protocol | `agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt` | [View Profile](https://agentverse.ai/agents/details/agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt/profile) |
+| **metta-agent** | Agentverse | Chat Protocol | `agent1q28esldytcauznk5tex8ryx5u5xdcg97p85wcttyk437zz035pl8g0pt8sv` | [View Profile](https://agentverse.ai/agents/details/agent1q28esldytcauznk5tex8ryx5u5xdcg97p85wcttyk437zz035pl8g0pt8sv/profile) |
+
+### Quick Access
+
+- **Live App**: https://agent-eth-global.vercel.app
+- **Query Understanding API**: https://agent-eth-global.onrender.com/understand
+- **Query Understanding Agent (Agentverse)**: https://agentverse.ai/agents/details/agent1qfmp9p3pu30dytavsv874nlthn7rstgpqjmvpld0jh6nsduydqxpqqqkynr/profile
+- **Main Agent Chat (Agentverse)**: https://agentverse.ai/agents/details/agent1qf264ppnf8qgr7td4rrecg9aqdqdwytswdpdmdjz6z6msxdrwcpjchwcrwt/profile
+- **Metadata Extraction API**: http://localhost:8001/analyze (requires local setup)
+
 ## 📊 Agent Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    USER INTERACTION                          │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│              USER INTERACTION (Vercel Frontend)              │
+│           https://agent-eth-global.vercel.app                │
+└──────────────────────────────────────────────────────────────┘
               │                                │
       ┌───────▼────────┐              ┌───────▼────────┐
-      │  Upload Docs    │              │   Chat Query   │
+      │  Upload Docs    │              │   Search Query │
       └───────┬────────┘              └───────┬────────┘
               │                                │
 ┌─────────────▼──────────────┐  ┌─────────────▼──────────────┐
-│ 📍 LOCAL AGENTS (Required)  │  │ 🌐 AGENTVERSE (Optional)    │
+│ 📍 HTTP API AGENTS          │  │ 🌐 AGENTVERSE (Optional)    │
 ├─────────────────────────────┤  ├─────────────────────────────┤
 │ metadata-extractor-agent    │  │ main-agent                  │
-│ Port: 8001                  │  │ Chat & search coordination  │
-│ Purpose: Auto metadata      │  │                             │
-│                             │  │ metta-agent                 │
-│ query-understanding-agent   │  │ Symbolic reasoning          │
-│ Port: 8002                  │  │                             │
+│ Local: Port 8001            │  │ Chat & search coordination  │
+│ Purpose: Auto metadata      │  │ Address: agent1qf26...      │
+│                             │  │                             │
+│ query-understanding-agent   │  │ metta-agent                 │
+│ Render (Production)         │  │ Symbolic reasoning          │
+│ https://...onrender.com     │  │ Address: agent1q28e...      │
 │ Purpose: Intent analysis    │  │                             │
 └─────────────────────────────┘  └─────────────────────────────┘
 ```
 
 ## 🎯 Agent Overview
 
-### Required Local Agents
+### HTTP API Agents
 
-These agents MUST run locally because they receive direct HTTP POST requests from the Next.js frontend:
+These agents expose REST endpoints and can be deployed to cloud or run locally:
 
-#### 1. **Metadata Extractor Agent** (`metadata-extractor-agent/`)
-- **Port:** 8001
-- **Deployment:** LOCAL ONLY
-- **Purpose:** Automatically extracts tech stack, keywords, domain, and languages from uploaded markdown files using ASI-1
-- **Used By:** `/api/projects` (upload endpoint)
-- **Documentation:** [README_LOCAL.md](./agents/metadata-extractor-agent/README_LOCAL.md)
-
-#### 2. **Query Understanding Agent** (`query-understanding-agent/`)
+#### 1. **Query Understanding Agent** (`query-understanding-agent/`)
 - **Port:** 8002
-- **Deployment:** LOCAL ONLY
+- **Deployment:** Render (Production) | Local (Development)
+- **Production URL:** https://agent-eth-global.onrender.com/understand
 - **Purpose:** Analyzes search queries to extract intent, technologies, and build dynamic filters using ASI-1
 - **Used By:** `/api/docs/smart-search` (search endpoint)
-- **Documentation:** [README_LOCAL.md](./agents/query-understanding-agent/README_LOCAL.md)
+- **Documentation:**
+  - [README_AGENTVERSE.md](./agents/query-understanding-agent/README_AGENTVERSE.md) - Complete API reference
+  - [README_LOCAL.md](./agents/query-understanding-agent/README_LOCAL.md) - Local development
+
+#### 2. **Metadata Extractor Agent** (`metadata-extractor-agent/`)
+- **Port:** 8001
+- **Deployment:** Local (can be deployed to Render/Agentverse)
+- **Purpose:** Automatically extracts tech stack, keywords, domain, and languages from uploaded markdown files using ASI-1
+- **Used By:** `/api/sponsors` (upload endpoint)
+- **Documentation:**
+  - [README_AGENTVERSE.md](./agents/metadata-extractor-agent/README_AGENTVERSE.md) - Complete API reference
+  - [README_LOCAL.md](./agents/metadata-extractor-agent/README_LOCAL.md) - Local development
 
 ### Optional Agentverse Agents
 
@@ -72,9 +97,35 @@ These agents can be deployed to Agentverse for chat functionality:
 - pip3
 - ASI-1 API key from [asi1.ai/dashboard/api-keys](https://asi1.ai/dashboard/api-keys)
 
-### Option 1: Start Local Agents Only (Recommended)
+### Option 1: Use Production Services (Easiest)
 
-This is the minimum setup needed for upload and search functionality:
+The **query-understanding-agent** is already deployed on Render. You only need to run:
+
+```bash
+# Terminal 1 - Metadata Extractor Agent (for file uploads)
+cd agents/metadata-extractor-agent
+pip3 install -r requirements.txt
+cp .env.example .env
+# Edit .env and add: ASI1_API_KEY=your-key-here
+./run_dev.sh
+```
+
+Then configure your frontend `.env.local`:
+```bash
+# Use production query understanding agent
+QUERY_AGENT_URL=https://agent-eth-global.onrender.com/understand
+
+# Use local metadata extractor
+METADATA_AGENT_URL=http://localhost:8001/analyze
+```
+
+✅ **You're ready!** The frontend can now:
+- Upload documentation with automatic metadata extraction (local agent)
+- Search with intelligent query understanding (production agent on Render)
+
+### Option 2: Run Everything Locally (Development)
+
+If you want to modify the query-understanding-agent:
 
 ```bash
 # Terminal 1 - Metadata Extractor Agent
@@ -92,26 +143,30 @@ cp .env.example .env
 ./run_dev.sh
 ```
 
-✅ **You're ready!** The frontend can now:
-- Upload documentation with automatic metadata extraction
-- Search with intelligent query understanding
+Then use local URLs in frontend `.env.local`:
+```bash
+QUERY_AGENT_URL=http://localhost:8002/understand
+METADATA_AGENT_URL=http://localhost:8001/analyze
+```
 
-### Option 2: Full Setup (All Agents)
+### Option 3: Full Setup with Chat Agents
 
-If you also want chat functionality:
+If you also want chat functionality with Agentverse agents:
 
 ```bash
-# Start local agents (from Option 1)
+# Start local agents (from Option 1 or 2)
 # Then also start:
 
-# Terminal 3 - MeTTa Agent
+# Terminal 3 - MeTTa Agent (optional, for symbolic reasoning)
 cd agents/metta-agent
 python3 metta-agent.py
 
-# Terminal 4 - Main Agent
+# Terminal 4 - Main Agent (for chat interface)
 cd agents/main-agent
 python3 agent.py
 ```
+
+Note: For production chat, deploy main-agent and metta-agent to Agentverse using the addresses from the table above.
 
 ---
 
@@ -153,7 +208,24 @@ agents/
 
 ## 🔑 Environment Setup
 
-### For Local Agents (metadata-agent & query-agent)
+### For Frontend (Next.js)
+
+Create `.env.local` in the `front-end/` directory:
+
+```bash
+# Query Understanding Agent (Production on Render)
+QUERY_AGENT_URL=https://agent-eth-global.onrender.com/understand
+
+# Metadata Extractor Agent (Local)
+METADATA_AGENT_URL=http://localhost:8001/analyze
+
+# Or for local development of query-understanding:
+# QUERY_AGENT_URL=http://localhost:8002/understand
+
+# Qdrant, Supabase, etc. (see .env.example for full list)
+```
+
+### For Local Agents (metadata-extractor & query-understanding)
 
 Create `.env` in each agent directory:
 
@@ -266,12 +338,14 @@ All agents include detailed logging:
 2. Add `ASI1_API_KEY=your-key-here`
 3. Restart agent
 
-### "Address already in use" (Port 8000 or 8001)
+### "Address already in use" (Port 8001 or 8002)
 
 **Solution:**
 ```bash
-# Find and kill process
-lsof -ti:8002 | xargs kill -9
+# Find and kill process on port 8001 (metadata-extractor)
+lsof -ti:8001 | xargs kill -9
+
+# Or port 8002 (query-understanding, if running locally)
 lsof -ti:8002 | xargs kill -9
 ```
 
@@ -290,9 +364,21 @@ lsof -ti:8002 | xargs kill -9
 ### Frontend can't connect to agents
 
 **Solution:**
-1. Verify agents are running: `curl http://localhost:8002/` and `curl http://localhost:8002/`
-2. Check `.env.local` in frontend has correct URLs
-3. Restart Next.js dev server
+1. **For production query-understanding-agent:**
+   - URL is: `https://agent-eth-global.onrender.com/understand`
+   - Test with: `curl https://agent-eth-global.onrender.com/understand -X POST -H "Content-Type: application/json" -d '{"query":"test","available_projects":[]}'`
+
+2. **For local metadata-extractor-agent:**
+   - Verify it's running: `curl http://localhost:8001/`
+   - Check logs in terminal where agent is running
+
+3. **Check `.env.local` in frontend:**
+   ```bash
+   QUERY_AGENT_URL=https://agent-eth-global.onrender.com/understand
+   METADATA_AGENT_URL=http://localhost:8001/analyze
+   ```
+
+4. Restart Next.js dev server
 
 ---
 
@@ -309,7 +395,15 @@ lsof -ti:8002 | xargs kill -9
 
 **To quickly test the system:**
 
-1. **Clone and setup** (5 minutes):
+**Option A: Use Live Production System (0 setup required)**
+- Visit https://agent-eth-global.vercel.app
+- Browse pre-indexed hackathon sponsor documentation
+- Test search with queries like "How do I deploy with Hardhat?"
+- **Total time: 1 minute**
+
+**Option B: Test File Upload Locally (5 minutes)**
+
+1. **Setup metadata agent** (3 minutes):
    ```bash
    git clone <repo>
    cd agents/agents/metadata-extractor-agent
@@ -318,29 +412,23 @@ lsof -ti:8002 | xargs kill -9
    ./run_dev.sh
    ```
 
-2. **In another terminal** (2 minutes):
-   ```bash
-   cd ../query-understanding-agent
-   pip3 install -r requirements.txt
-   echo "ASI1_API_KEY=your-key" > .env
-   ./run_dev.sh
-   ```
-
-3. **Start frontend** (2 minutes):
+2. **Start frontend** (2 minutes):
    ```bash
    cd ../../../front-end
    yarn install
    cp .env.example .env.local
-   # Edit .env.local with your keys
+   # Edit .env.local - use production query agent URL:
+   # QUERY_AGENT_URL=https://agent-eth-global.onrender.com/understand
+   # METADATA_AGENT_URL=http://localhost:8001/analyze
    yarn dev
    ```
 
-4. **Test** (1 minute):
+3. **Test** (1 minute):
    - Go to http://localhost:3000
    - Upload any markdown file
    - See automatic metadata extraction!
 
-**Total setup time: ~10 minutes**
+**Total setup time: ~5-6 minutes** (reduced because query-understanding is already deployed)
 
 ---
 
