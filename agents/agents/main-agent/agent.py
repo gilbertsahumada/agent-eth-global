@@ -150,7 +150,7 @@ async def handle_user_message(ctx: Context, sender: str, msg: ChatMessage):
 
 📖 **To get started:**
 1. Upload documentation files (.md) through the web interface
-2. Index technologies you're planning to use (e.g., Chainlink, Polygon, The Graph)
+2. Index technologies you're planning to use (e.g., ASI:One, Chainlink, Ethereum, Hardhat)
 3. Come back and ask me anything!
 
 💡 **What I can help with once docs are uploaded:**
