@@ -94,16 +94,9 @@ export async function extractMetadata(
     console.error('[MetadataAgent] Agent URL:', METADATA_AGENT_URL);
     console.error('[MetadataAgent] Make sure the agent is running on port 8001');
 
-    // Return empty metadata on error (fallback)
-    console.warn('[MetadataAgent] ⚠️ Returning empty metadata as fallback');
-    return {
-      tech_stack: [],
-      domain: 'Other',
-      keywords: [],
-      languages: [],
-      description: '',
-      code_snippets: []
-    };
+    // Re-throw the error instead of returning empty metadata
+    // This prevents updating the database with empty values
+    throw new Error(`Failed to extract metadata: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
