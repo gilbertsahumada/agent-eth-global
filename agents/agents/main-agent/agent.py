@@ -26,7 +26,7 @@ AGENT_NAME = "EtHGlobalHackerAgent"
 AGENT_SEED = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 
 NEXT_API_BASE = os.getenv("NEXT_API_BASE_URL", "https://agent-eth-global.vercel.app/api")
-PROJECTS_URL = f"{NEXT_API_BASE}/projects"
+DOCS_STATUS_URL = f"{NEXT_API_BASE}/docs/status"  # Check if documentation is available
 DOCS_SEARCH_URL = f"{NEXT_API_BASE}/docs/smart-search"  # Smart search with ASI1-powered query understanding
 
 # MeTTa Agent Address (get from agent_v1/metta_service_agentverse.py startup logs)
@@ -50,19 +50,17 @@ agent = Agent()
 protocol = Protocol(spec=chat_protocol_spec)
 #fund_agent_if_low(agent.wallet.address())
 
-# Function to get available projects
-def get_projects():
+# Function to check documentation status
+def get_docs_status():
     try:
-        response = requests.get(PROJECTS_URL, timeout=10)
+        response = requests.get(DOCS_STATUS_URL, timeout=10)
         response.raise_for_status()
         data = response.json()
-        # The endpoint returns {"projects": [...], "count": N}
-        if isinstance(data, dict) and "projects" in data:
-            return data["projects"]
-        return []
+        # The endpoint returns {"hasDocumentation": bool, "hackathon": {...}, "sources": {...}}
+        return data
     except Exception as e:
-        print(f"Error fetching projects: {e}")
-        return []
+        print(f"Error fetching documentation status: {e}")
+        return {"hasDocumentation": False, "sources": {"sponsors": 0, "projects": 0}}
 
 # Storage for MeTTa reasoning responses (key: session_id, value: reasoning text)
 metta_reasoning_cache = {}
@@ -136,22 +134,25 @@ async def handle_user_message(ctx: Context, sender: str, msg: ChatMessage):
     start_time = time.time()
 
     try:
-        # Get available projects
-        ctx.logger.info(f"⏱️ [0.00s] Fetching projects...")
-        projects = get_projects()
-        ctx.logger.info(f"⏱️ [{time.time() - start_time:.2f}s] Got {len(projects)} projects")
+        # Check documentation status
+        ctx.logger.info(f"⏱️ [0.00s] Checking documentation status...")
+        docs_status = get_docs_status()
+        ctx.logger.info(f"⏱️ [{time.time() - start_time:.2f}s] Documentation available: {docs_status.get('hasDocumentation', False)}")
+        ctx.logger.info(f"   - Sponsors: {docs_status.get('sources', {}).get('sponsors', 0)}")
+        ctx.logger.info(f"   - Projects: {docs_status.get('sources', {}).get('projects', 0)}")
 
-        if not projects:
-            no_projects_msg = ChatMessage(
-                timestamp=datetime.now(timezone.utc),
-                msg_id=msg.msg_id,
-                content=[
-                    TextContent(text="""👋 Hi! I'm your hackathon AI assistant, but I don't have any documentation indexed yet.
+        if not docs_status.get('hasDocumentation', False):
+            hackathon = docs_status.get('hackathon')
+            if hackathon:
+                msg_text = f"""👋 Hi! I'm your hackathon AI assistant for **{hackathon.get('name', 'the hackathon')}**.
 
-📖 **To get started:**
-1. Upload documentation files (.md) through the web interface
-2. Index technologies you're planning to use (e.g., ASI:One, Chainlink, Ethereum, Hardhat)
-3. Come back and ask me anything!
+📖 **Getting Started:**
+No sponsor documentation has been indexed yet for this hackathon. To get started:
+
+1. Go to the Hackathons page
+2. Add sponsors to this hackathon
+3. Upload their documentation (.md files)
+4. Come back and ask me anything!
 
 💡 **What I can help with once docs are uploaded:**
 - Implementation guides and tutorials
@@ -160,14 +161,39 @@ async def handle_user_message(ctx: Context, sender: str, msg: ChatMessage):
 - API usage patterns
 - Debugging and troubleshooting
 
-Ready to upload some docs? Head to the main page and let's get building! 🚀"""),
+Ready to add sponsors? Head to the main page and let's get building! 🚀"""
+            else:
+                msg_text = """👋 Hi! I'm your hackathon AI assistant, but no active hackathon is configured yet.
+
+📖 **To get started:**
+1. Go to the Hackathons page
+2. Create or select a hackathon
+3. Set it as active
+4. Add sponsors and upload their documentation
+5. Come back and ask me anything!
+
+💡 **What I can help with once set up:**
+- Implementation guides and tutorials
+- Code examples and best practices
+- Smart contract integration
+- API usage patterns
+- Debugging and troubleshooting
+
+Ready to set up? Head to the main page and let's get building! 🚀"""
+
+            no_docs_msg = ChatMessage(
+                timestamp=datetime.now(timezone.utc),
+                msg_id=msg.msg_id,
+                content=[
+                    TextContent(text=msg_text),
                     EndSessionContent()
                 ]
             )
-            await ctx.send(sender, no_projects_msg)
+            await ctx.send(sender, no_docs_msg)
             return
 
-        ctx.logger.info(f"📚 Searching across {len(projects)} project(s)")
+        sponsor_count = docs_status.get('sources', {}).get('sponsors', 0)
+        ctx.logger.info(f"📚 Searching across {sponsor_count} indexed sponsor(s)")
         ctx.logger.info(f"⏱️ [{time.time() - start_time:.2f}s] Starting smart search with ASI1 query understanding...")
 
         # Use smart search endpoint (POST with ASI1-powered query understanding)
@@ -255,19 +281,22 @@ However, the current hackathon **{hackathon_info.get('name', 'Active Hackathon')
 
 What would you like to know about any of these sponsors?"""
             else:
-                # Fallback to projects if no sponsors available
-                project_list = "\n".join([f"• {p.get('name', 'Unknown')}: {p.get('description', 'No description')}" for p in projects])
+                # No sponsors or documentation available
                 helpful_response = f"""I couldn't find specific information about '{query}' in my indexed documentation.
 
-However, I have documentation for the following projects that might help you in this hackathon:
+It looks like no sponsor documentation is available yet. To get started:
 
-{project_list}
+1. Go to the Hackathons page
+2. Add sponsors to the active hackathon
+3. Upload their documentation (.md files)
+4. Come back and ask me anything!
 
-💡 **How I can help:**
-- Ask me how to implement any of these technologies
-- Request code examples or integration guides
-
-What would you like to know about any of these projects?"""
+💡 **Once documentation is uploaded, I can help with:**
+- Implementation guides and tutorials
+- Code examples and best practices
+- Smart contract integration
+- API usage patterns
+- Debugging and troubleshooting"""
             
             helpful_msg = ChatMessage(
                 timestamp=datetime.now(timezone.utc),
@@ -458,8 +487,8 @@ async def on_startup(ctx: Context):
     ctx.logger.info(f"📍 Agent address: {agent.address}")
     ctx.logger.info(f"🌐 Listening on port 8000")
     ctx.logger.info(f"📚 Connected to Next.js API: {NEXT_API_BASE}")
-    ctx.logger.info(f"🔍 Projects URL: {PROJECTS_URL}")
-    ctx.logger.info(f"📖 Docs Search URL: {DOCS_SEARCH_URL}")
+    ctx.logger.info(f"📊 Docs Status URL: {DOCS_STATUS_URL}")
+    ctx.logger.info(f"🔍 Docs Search URL: {DOCS_SEARCH_URL}")
     ctx.logger.info("")
 
 # Enabling chat functionality
